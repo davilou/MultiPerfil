@@ -169,7 +169,12 @@ class Lancador:
             return
         assert processo.stdin is not None
         if not processo.stdin.closed:
-            processo.stdin.close()
+            try:
+                processo.stdin.close()
+            except OSError as erro:
+                # Node já morreu com config no buffer; o close tenta o flush e quebra.
+                # Relançar esconderia o erro original de abrir(). O wait abaixo reapa.
+                log.info("[%s] stdin já estava quebrado ao fechar: %s", perfil_id, erro)
         try:
             processo.wait(timeout=PRAZO_FECHAR_S)
         except subprocess.TimeoutExpired:
