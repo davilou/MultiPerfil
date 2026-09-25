@@ -7,6 +7,7 @@ dependencies = [
     "fastapi==0.141.1",
     "uvicorn==0.54.0",
     "httpx==0.28.1",
+    "pproxy==2.7.9",  # Chromium não aceita proxy com senha
 ]
 
 [project.optional-dependencies]
