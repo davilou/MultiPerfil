@@ -71,6 +71,12 @@ A doc do Camoufox (conferida em 2026-09-25) descreve `launch_server` como
 
 O protótipo decide entre A e B antes de qualquer interface.
 
+**Atualização 2026-09-25 (código do camoufox 0.5.6 lido):** `launch_server` recusa
+`persistent_context`/`user_data_dir` explicitamente — o plano A não existe; o B é o
+caminho. E `launch_options()` sorteia seeds, fontes, vozes e chaves opcionais a cada
+chamada, então o fingerprint congelado é reaplicado pelo próprio lançador (troca das
+variáveis `CAMOU_CONFIG_*`), não por `config=`. Detalhes no plano do sidecar.
+
 ## Regras de comportamento
 
 - Um perfil nunca abre duas vezes: segundo `abrir` com o perfil aberto devolve
