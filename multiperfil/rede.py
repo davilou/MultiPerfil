@@ -18,7 +18,11 @@ def porta_livre() -> int:
 
 
 def esperar_porta(porta: int, processo: subprocess.Popen, prazo_s: float) -> None:
-    """Espera `porta` aceitar conexão; falha na hora se o processo dono morrer."""
+    """Espera `porta` aceitar conexão; falha na hora se o processo dono morrer.
+
+    Corrida aceita: entre `porta_livre` e o processo ocupar a porta, outro programa
+    poderia pegá-la. Numa máquina de um usuário a janela é de milissegundos.
+    """
     limite = time.monotonic() + prazo_s
     while time.monotonic() < limite:
         if (codigo := processo.poll()) is not None:

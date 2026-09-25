@@ -22,6 +22,7 @@ def test_esperar_porta_que_abre():
             esperar_porta(servidor.getsockname()[1], processo, prazo_s=2)
         finally:
             processo.kill()
+            processo.wait()
 
 
 def test_esperar_porta_falha_se_processo_morre():

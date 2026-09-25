@@ -28,6 +28,10 @@ class Repassador:
     def __init__(self, pasta: Path) -> None:
         self._pasta = pasta
         self._processos: dict[str, subprocess.Popen] = {}
+        # Credencial que sobrou de uma queda do serviço: no início nenhum repassador
+        # desta instância existe, então todo .auth na pasta é lixo com senha dentro.
+        for sobra in pasta.glob("*.auth"):
+            sobra.unlink()
 
     def _escrever_auth(self, perfil_id: str, proxy: Proxy) -> Path | None:
         if not proxy.usuario:

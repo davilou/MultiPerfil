@@ -84,3 +84,11 @@ def test_abrir_duas_vezes_troca_o_processo(tmp_path, remoto_com_senha):
     segunda = repassador.abrir("t", proxy)
     assert primeira != segunda
     repassador.fechar("t")
+
+
+def test_inicio_apaga_credencial_esquecida_por_queda(tmp_path):
+    (tmp_path / "velho.auth").write_text("ana:segredo")
+    (tmp_path / "outro.txt").write_text("fica")
+    Repassador(tmp_path)
+    assert not (tmp_path / "velho.auth").exists()
+    assert (tmp_path / "outro.txt").exists()
