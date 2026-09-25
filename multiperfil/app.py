@@ -64,7 +64,9 @@ def main() -> None:
     janela = webview.create_window("MultiPerfil", f"http://127.0.0.1:{PORTA}/",
                                    width=1400, height=860, min_size=(1000, 600))
     app = criar_app(deps, mostrar_janela=lambda: trazer_a_frente(janela))
-    servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=PORTA, log_config=None))
+    # access_log desligado: a tabela pede /perfis a cada 2 s e encheria o app.log.
+    config = uvicorn.Config(app, host="127.0.0.1", port=PORTA, log_config=None, access_log=False)
+    servidor = uvicorn.Server(config)
     threading.Thread(target=servidor.run, daemon=True).start()
     janela.events.closed += lambda: _encerrar(deps, servidor)
     webview.start()
