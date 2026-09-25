@@ -140,19 +140,10 @@ async function removerVarios(ids) {
   desenhar();
 }
 
-async function copiarCdp(perfil) {
-  try {
-    await navigator.clipboard.writeText(perfil.cdp);
-    toast("Endereço copiado");
-  } catch (erro) {
-    toast(`Não foi possível copiar: ${erro.message}`, true);
-  }
-}
-
 function itensMenu(perfil) {
   const itens = [];
   if (perfil.status === "aberto" && perfil.cdp) {
-    itens.push({ rotulo: "Copiar endereço CDP", icone: "copiar", acao: () => copiarCdp(perfil) }, "-");
+    itens.push({ rotulo: "Copiar endereço CDP", icone: "copiar", acao: () => copiarTexto(perfil.cdp, "Endereço copiado") }, "-");
   }
   itens.push(
     { rotulo: "Editar", icone: "lapis", acao: () => acoes.editar(perfil) },

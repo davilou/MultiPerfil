@@ -87,11 +87,45 @@ function idDoNome(nome) {
     .replace(/-+$/, "");
 }
 
-function toast(texto, erro = false) {
+function toast(texto, erro = false, duracaoMs = erro ? 6000 : 3200) {
   const caixa = el("div", { class: erro ? "toast erro" : "toast", texto });
   document.getElementById("toasts").append(caixa);
   setTimeout(() => {
     caixa.classList.add("sai");
     setTimeout(() => caixa.remove(), 300);
-  }, erro ? 6000 : 3200);
+  }, duracaoMs);
+}
+
+/** Cópia síncrona pelo `execCommand`; precisa rodar dentro do clique do usuário. */
+function copiarPorSelecao(texto) {
+  const area = el("textarea", { readonly: true, style: "position:fixed;left:-9999px;top:0" });
+  area.value = texto;
+  document.body.append(area);
+  area.select();
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    area.remove();
+  }
+}
+
+/**
+ * Copia para a área de transferência. O WebView2 do pywebview pode negar
+ * `navigator.clipboard`, então tenta primeiro o `execCommand` (síncrono, ainda
+ * dentro do gesto do usuário) e só depois a API assíncrona. Se as duas falham,
+ * mostra o texto num aviso para cópia manual.
+ */
+async function copiarTexto(texto, rotulo) {
+  if (copiarPorSelecao(texto)) {
+    toast(rotulo);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast(rotulo);
+  } catch {
+    toast(`Copie o endereço: ${texto}`, false, 15000);
+  }
 }
