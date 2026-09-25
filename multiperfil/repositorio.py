@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,7 +68,7 @@ class Repositorio:
     def __init__(self, caminho: Path) -> None:
         caminho.parent.mkdir(parents=True, exist_ok=True)
         self._caminho = caminho
-        with self._conectar() as con:
+        with closing(self._conectar()) as con, con:
             con.execute(ESQUEMA)
 
     def _conectar(self) -> sqlite3.Connection:
@@ -83,25 +84,25 @@ class Repositorio:
         linha = (perfil.id, perfil.nome, perfil.sistema, url_completa(perfil.proxy),
                  json.dumps(perfil.config), perfil.notas, agora)
         try:
-            with self._conectar() as con:
+            with closing(self._conectar()) as con, con:
                 con.execute("INSERT INTO perfis VALUES (?, ?, ?, ?, ?, ?, ?)", linha)
         except sqlite3.IntegrityError:
             raise PerfilExiste(perfil.id) from None
 
     def obter(self, perfil_id: str) -> Perfil:
-        with self._conectar() as con:
+        with closing(self._conectar()) as con, con:
             linha = con.execute("SELECT * FROM perfis WHERE id = ?", (perfil_id,)).fetchone()
         if linha is None:
             raise PerfilInexistente(perfil_id)
         return _de_linha(linha)
 
     def listar(self) -> list[Perfil]:
-        with self._conectar() as con:
+        with closing(self._conectar()) as con, con:
             linhas = con.execute("SELECT * FROM perfis ORDER BY nome").fetchall()
         return [_de_linha(linha) for linha in linhas]
 
     def atualizar(self, perfil_id: str, *, nome: str, proxy: Proxy, notas: str) -> None:
-        with self._conectar() as con:
+        with closing(self._conectar()) as con, con:
             cursor = con.execute(
                 "UPDATE perfis SET nome = ?, proxy = ?, notas = ? WHERE id = ?",
                 (nome, url_completa(proxy), notas, perfil_id),
@@ -110,7 +111,7 @@ class Repositorio:
             raise PerfilInexistente(perfil_id)
 
     def remover(self, perfil_id: str) -> None:
-        with self._conectar() as con:
+        with closing(self._conectar()) as con, con:
             cursor = con.execute("DELETE FROM perfis WHERE id = ?", (perfil_id,))
         if cursor.rowcount == 0:
             raise PerfilInexistente(perfil_id)

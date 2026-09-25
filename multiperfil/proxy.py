@@ -14,13 +14,16 @@ ESQUEMAS: tuple[str, ...] = ("http", "https", "socks5")
 FORMATO_ESPERADO = "esquema://usuario:senha@host:porta, host:porta ou host:porta:usuario:senha"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Proxy:
     esquema: str
     host: str
     porta: int
     usuario: str | None = None
     senha: str | None = None
+
+    def __repr__(self) -> str:
+        return f"Proxy({descrever(self)})"
 
 
 @dataclass(frozen=True)
@@ -105,6 +108,8 @@ def testar(
         ip = buscar_ip(para_requests(p))
     except Exception as erro:
         texto = str(erro).replace(url_completa(p), descrever(p)).replace(para_requests(p), descrever(p))
+        if p.senha:
+            texto = texto.replace(quote(p.senha, safe=""), "***").replace(p.senha, "***")
         raise ErroProxy(f"proxy {descrever(p)} não respondeu: {texto}") from None
     latencia = int((time.perf_counter() - inicio) * 1000)
     if geolocalizar is None:

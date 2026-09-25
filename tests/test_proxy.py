@@ -7,13 +7,9 @@ from multiperfil.proxy import (
     para_playwright,
     para_requests,
     parse_proxy,
-    testar,
     url_completa,
 )
-
-# `testar` casa com o padrão padrão de coleta do pytest (test*) só por causa do nome;
-# sem isso o pytest tenta rodá-la como teste e falha pedindo a fixture `p`.
-testar.__test__ = False
+from multiperfil.proxy import testar as verificar_proxy
 
 
 def test_parse_url_com_credenciais():
@@ -42,6 +38,13 @@ def test_descrever_mascara_senha():
     assert "segredo" not in descrever(p)
 
 
+def test_repr_e_str_nao_vazam_senha():
+    p = Proxy("socks5", "h", 1, "ana", "segredo")
+    assert "segredo" not in repr(p)
+    assert "segredo" not in str(p)
+    assert repr(p) == "Proxy(socks5://ana:***@h:1)"
+
+
 def test_para_playwright_omite_credenciais_ausentes():
     assert para_playwright(Proxy("http", "h", 1)) == {"server": "http://h:1"}
     assert para_playwright(Proxy("http", "h", 1, "u", "p")) == {
@@ -68,7 +71,7 @@ def test_testar_devolve_ip_pais_fuso():
         class locale:
             region = "BR"
 
-    r = testar(Proxy("http", "h", 1), buscar_ip=lambda url: "5.6.7.8", geolocalizar=lambda ip: Geo)
+    r = verificar_proxy(Proxy("http", "h", 1), buscar_ip=lambda url: "5.6.7.8", geolocalizar=lambda ip: Geo)
     assert (r.ip, r.pais, r.fuso) == ("5.6.7.8", "BR", "America/Sao_Paulo")
     assert r.latencia_ms >= 0
 
@@ -78,6 +81,15 @@ def test_testar_falha_sem_vazar_senha():
         raise RuntimeError(f"falhou em {url}")
 
     with pytest.raises(ErroProxy) as erro:
-        testar(Proxy("http", "h", 1, "u", "segredo"), buscar_ip=quebra, geolocalizar=None)
+        verificar_proxy(Proxy("http", "h", 1, "u", "segredo"), buscar_ip=quebra, geolocalizar=None)
     assert "segredo" not in str(erro.value)
     assert "http://u:***@h:1" in str(erro.value)
+
+
+def test_testar_falha_sem_vazar_senha_crua_na_mensagem():
+    def quebra(url):
+        raise RuntimeError("auth falhou, pass segredo")
+
+    with pytest.raises(ErroProxy) as erro:
+        verificar_proxy(Proxy("http", "h", 1, "u", "segredo"), buscar_ip=quebra, geolocalizar=None)
+    assert "segredo" not in str(erro.value)
