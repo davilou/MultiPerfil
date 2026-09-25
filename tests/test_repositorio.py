@@ -10,7 +10,8 @@ def _perfil(pid: str = "canal-a") -> Perfil:
         nome="Canal A",
         sistema="windows",
         proxy=Proxy("socks5", "h", 1080, "u", "p@ss"),
-        config={"canvas:seed": 7},
+        seed=123456,
+        idioma="pt-BR",
         notas="",
     )
 
@@ -20,7 +21,7 @@ def test_criar_obter_listar(tmp_path):
     repo.criar(_perfil())
     obtido = repo.obter("canal-a")
     assert obtido.proxy == Proxy("socks5", "h", 1080, "u", "p@ss")
-    assert obtido.config == {"canvas:seed": 7}
+    assert (obtido.seed, obtido.idioma) == (123456, "pt-BR")
     assert [p.id for p in repo.listar()] == ["canal-a"]
 
 
@@ -41,12 +42,20 @@ def test_obter_inexistente_falha(tmp_path):
         Repositorio(tmp_path / "p.db").obter("nada")
 
 
-def test_atualizar_nao_toca_no_config(tmp_path):
+def test_atualizar_nao_toca_na_seed(tmp_path):
     repo = Repositorio(tmp_path / "p.db")
     repo.criar(_perfil())
-    repo.atualizar("canal-a", nome="Novo", proxy=Proxy("http", "x", 1), notas="n")
+    repo.atualizar("canal-a", nome="Novo", proxy=Proxy("http", "x", 1), idioma="en-US", notas="n")
     p = repo.obter("canal-a")
-    assert (p.nome, p.proxy, p.notas, p.config) == ("Novo", Proxy("http", "x", 1), "n", {"canvas:seed": 7})
+    assert (p.nome, p.proxy, p.idioma, p.notas, p.seed) == (
+        "Novo", Proxy("http", "x", 1), "en-US", "n", 123456)
+
+
+@pytest.mark.parametrize("idioma", ["", "portugues", "pt_BR", "PT-br", "pt-BR;q=1"])
+def test_idioma_invalido(tmp_path, idioma):
+    repo = Repositorio(tmp_path / "p.db")
+    with pytest.raises(ValueError):
+        repo.criar(Perfil("a", "A", "windows", Proxy("http", "h", 1), 1, idioma, ""))
 
 
 def test_remover(tmp_path):

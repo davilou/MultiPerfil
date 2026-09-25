@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import sqlite3
 from contextlib import closing
@@ -10,10 +9,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from multiperfil.fingerprint import Config
 from multiperfil.proxy import Proxy, parse_proxy, url_completa
 
 PADRAO_ID = re.compile(r"^[a-z0-9-]{1,40}$")
+PADRAO_IDIOMA = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
 SISTEMAS: tuple[str, ...] = ("windows", "macos", "linux")
 
 ESQUEMA = """
@@ -22,7 +21,8 @@ CREATE TABLE IF NOT EXISTS perfis (
     nome TEXT NOT NULL,
     sistema TEXT NOT NULL,
     proxy TEXT NOT NULL,
-    config TEXT NOT NULL,
+    seed INTEGER NOT NULL,
+    idioma TEXT NOT NULL,
     notas TEXT NOT NULL,
     criado_em TEXT NOT NULL
 )
@@ -35,7 +35,8 @@ class Perfil:
     nome: str
     sistema: str
     proxy: Proxy
-    config: Config
+    seed: int
+    idioma: str
     notas: str
 
 
@@ -53,13 +54,20 @@ def validar_id(perfil_id: str) -> str:
     return perfil_id
 
 
+def validar_idioma(idioma: str) -> str:
+    if not PADRAO_IDIOMA.match(idioma):
+        raise ValueError("idioma deve ser como pt-BR, en-US ou pt")
+    return idioma
+
+
 def _de_linha(linha: sqlite3.Row) -> Perfil:
     return Perfil(
         id=linha["id"],
         nome=linha["nome"],
         sistema=linha["sistema"],
         proxy=parse_proxy(linha["proxy"]),
-        config=json.loads(linha["config"]),
+        seed=linha["seed"],
+        idioma=linha["idioma"],
         notas=linha["notas"],
     )
 
@@ -80,12 +88,13 @@ class Repositorio:
         validar_id(perfil.id)
         if perfil.sistema not in SISTEMAS:
             raise ValueError(f"sistema deve ser um de {SISTEMAS}")
+        validar_idioma(perfil.idioma)
         agora = datetime.now(timezone.utc).isoformat()
-        linha = (perfil.id, perfil.nome, perfil.sistema, url_completa(perfil.proxy),
-                 json.dumps(perfil.config), perfil.notas, agora)
+        linha = (perfil.id, perfil.nome, perfil.sistema, url_completa(perfil.proxy), perfil.seed,
+                 perfil.idioma, perfil.notas, agora)
         try:
             with closing(self._conectar()) as con, con:
-                con.execute("INSERT INTO perfis VALUES (?, ?, ?, ?, ?, ?, ?)", linha)
+                con.execute("INSERT INTO perfis VALUES (?, ?, ?, ?, ?, ?, ?, ?)", linha)
         except sqlite3.IntegrityError:
             raise PerfilExiste(perfil.id) from None
 
@@ -101,11 +110,12 @@ class Repositorio:
             linhas = con.execute("SELECT * FROM perfis ORDER BY nome").fetchall()
         return [_de_linha(linha) for linha in linhas]
 
-    def atualizar(self, perfil_id: str, *, nome: str, proxy: Proxy, notas: str) -> None:
+    def atualizar(self, perfil_id: str, *, nome: str, proxy: Proxy, idioma: str, notas: str) -> None:
+        validar_idioma(idioma)
         with closing(self._conectar()) as con, con:
             cursor = con.execute(
-                "UPDATE perfis SET nome = ?, proxy = ?, notas = ? WHERE id = ?",
-                (nome, url_completa(proxy), notas, perfil_id),
+                "UPDATE perfis SET nome = ?, proxy = ?, idioma = ?, notas = ? WHERE id = ?",
+                (nome, url_completa(proxy), idioma, notas, perfil_id),
             )
         if cursor.rowcount == 0:
             raise PerfilInexistente(perfil_id)

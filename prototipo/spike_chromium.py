@@ -28,7 +28,13 @@ PASTA = Path("dados/spike-chromium").resolve()
 CHROME = Path("navegador/ungoogled-chromium_148.0.7778.215-1.1_windows_x64/chrome.exe").resolve()
 PRAZO_LOGIN_MS = 10 * 60 * 1000
 INICIO = time.perf_counter()
-SONDA = Path("prototipo/spike_login_sonda.py").read_text(encoding="utf-8").split('"""')[1]
+SONDA = """() => {
+  const c = document.createElement('canvas'); const g = c.getContext('2d');
+  g.font = '16px Arial'; g.fillText('MultiPerfil', 2, 20);
+  return {ua: navigator.userAgent, tela: [screen.width, screen.height],
+          janela: [innerWidth, innerHeight], fuso: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          idioma: navigator.language, canvas: c.toDataURL()};
+}"""
 
 
 def marca(texto: str) -> None:
