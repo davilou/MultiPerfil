@@ -3,7 +3,8 @@ name = "multiperfil"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-    "camoufox[geoip]==0.5.6",   # fixado: o lançador usa internos de camoufox.server
+    "camoufox[geoip]==0.5.6",   # só public_ip e get_geolocation (IP de saída → país e fuso)
+    "playwright==1.62.0",       # fechar pelo CDP (lancador) e helper dos scripts (cliente)
     "fastapi==0.141.1",
     "uvicorn==0.54.0",
     "httpx==0.28.1",

@@ -1103,6 +1103,14 @@ asyncio.run(main(sys.argv[1] if len(sys.argv) > 1 else "teste"))
 
 ---
 
+## Verificação ao vivo (2026-09-25, tarefas 15 e 16)
+
+Serviço real + proxy da Eslováquia: criar 201 (senha mascarada); abrir 1,3 s → `cdp`;
+segundo abrir 409 com o mesmo `cdp`; fechar 1,3 s (inclui subir o driver do Playwright —
+não justifica dependência de websocket); senha ausente de todas as respostas e do log;
+zero `chrome.exe`/pproxy órfãos; `.auth` apagado. `prototipo/teste_cliente.py`: ipinfo viu
+IP/país/fuso do proxy (SK, Europe/Bratislava); ciclo completo 9 s.
+
 ## Depois deste plano
 
 Plano separado: janela desktop em pywebview (lista de perfis com status, criar/editar com
