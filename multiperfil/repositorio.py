@@ -24,9 +24,26 @@ CREATE TABLE IF NOT EXISTS perfis (
     seed INTEGER NOT NULL,
     idioma TEXT NOT NULL,
     notas TEXT NOT NULL,
-    criado_em TEXT NOT NULL
+    criado_em TEXT NOT NULL,
+    favorito INTEGER NOT NULL DEFAULT 0,
+    editado_em TEXT,
+    ultimo_inicio TEXT,
+    pais TEXT,
+    ip_saida TEXT
 )
 """
+
+COLUNAS_NOVAS: tuple[tuple[str, str], ...] = (
+    ("favorito", "INTEGER NOT NULL DEFAULT 0"),
+    ("editado_em", "TEXT"),
+    ("ultimo_inicio", "TEXT"),
+    ("pais", "TEXT"),
+    ("ip_saida", "TEXT"),
+)
+
+
+def agora_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -38,6 +55,12 @@ class Perfil:
     seed: int
     idioma: str
     notas: str
+    favorito: bool = False
+    criado_em: str = ""
+    editado_em: str = ""
+    ultimo_inicio: str | None = None
+    pais: str | None = None
+    ip_saida: str | None = None
 
 
 class PerfilInexistente(KeyError):
@@ -69,7 +92,22 @@ def _de_linha(linha: sqlite3.Row) -> Perfil:
         seed=linha["seed"],
         idioma=linha["idioma"],
         notas=linha["notas"],
+        favorito=bool(linha["favorito"]),
+        criado_em=linha["criado_em"],
+        editado_em=linha["editado_em"],
+        ultimo_inicio=linha["ultimo_inicio"],
+        pais=linha["pais"],
+        ip_saida=linha["ip_saida"],
     )
+
+
+def _migrar(con: sqlite3.Connection) -> None:
+    """Banco criado antes destas colunas ganha as que faltam; editado_em = criado_em."""
+    existentes = {linha["name"] for linha in con.execute("PRAGMA table_info(perfis)")}
+    for nome, tipo in COLUNAS_NOVAS:
+        if nome not in existentes:
+            con.execute(f"ALTER TABLE perfis ADD COLUMN {nome} {tipo}")
+    con.execute("UPDATE perfis SET editado_em = criado_em WHERE editado_em IS NULL")
 
 
 class Repositorio:
@@ -78,6 +116,7 @@ class Repositorio:
         self._caminho = caminho
         with closing(self._conectar()) as con, con:
             con.execute(ESQUEMA)
+            _migrar(con)
 
     def _conectar(self) -> sqlite3.Connection:
         con = sqlite3.connect(self._caminho)
@@ -89,12 +128,16 @@ class Repositorio:
         if perfil.sistema not in SISTEMAS:
             raise ValueError(f"sistema deve ser um de {SISTEMAS}")
         validar_idioma(perfil.idioma)
-        agora = datetime.now(timezone.utc).isoformat()
+        agora = agora_iso()
         linha = (perfil.id, perfil.nome, perfil.sistema, url_completa(perfil.proxy), perfil.seed,
-                 perfil.idioma, perfil.notas, agora)
+                 perfil.idioma, perfil.notas, agora, agora)
         try:
             with closing(self._conectar()) as con, con:
-                con.execute("INSERT INTO perfis VALUES (?, ?, ?, ?, ?, ?, ?, ?)", linha)
+                con.execute(
+                    "INSERT INTO perfis (id, nome, sistema, proxy, seed, idioma, notas, criado_em, "
+                    "editado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    linha,
+                )
         except sqlite3.IntegrityError:
             raise PerfilExiste(perfil.id) from None
 
@@ -110,18 +153,28 @@ class Repositorio:
             linhas = con.execute("SELECT * FROM perfis ORDER BY nome").fetchall()
         return [_de_linha(linha) for linha in linhas]
 
-    def atualizar(self, perfil_id: str, *, nome: str, proxy: Proxy, idioma: str, notas: str) -> None:
-        validar_idioma(idioma)
+    def _alterar(self, perfil_id: str, sql: str, valores: tuple) -> None:
         with closing(self._conectar()) as con, con:
-            cursor = con.execute(
-                "UPDATE perfis SET nome = ?, proxy = ?, idioma = ?, notas = ? WHERE id = ?",
-                (nome, url_completa(proxy), idioma, notas, perfil_id),
-            )
+            cursor = con.execute(sql, (*valores, perfil_id))
         if cursor.rowcount == 0:
             raise PerfilInexistente(perfil_id)
 
+    def atualizar(self, perfil_id: str, *, nome: str, proxy: Proxy, idioma: str, notas: str) -> None:
+        validar_idioma(idioma)
+        self._alterar(
+            perfil_id,
+            "UPDATE perfis SET nome = ?, proxy = ?, idioma = ?, notas = ?, editado_em = ? WHERE id = ?",
+            (nome, url_completa(proxy), idioma, notas, agora_iso()),
+        )
+
     def remover(self, perfil_id: str) -> None:
-        with closing(self._conectar()) as con, con:
-            cursor = con.execute("DELETE FROM perfis WHERE id = ?", (perfil_id,))
-        if cursor.rowcount == 0:
-            raise PerfilInexistente(perfil_id)
+        self._alterar(perfil_id, "DELETE FROM perfis WHERE id = ?", ())
+
+    def definir_favorito(self, perfil_id: str, favorito: bool) -> None:
+        self._alterar(perfil_id, "UPDATE perfis SET favorito = ? WHERE id = ?", (int(favorito),))
+
+    def registrar_inicio(self, perfil_id: str, quando: str) -> None:
+        self._alterar(perfil_id, "UPDATE perfis SET ultimo_inicio = ? WHERE id = ?", (quando,))
+
+    def registrar_teste(self, perfil_id: str, *, ip: str, pais: str | None) -> None:
+        self._alterar(perfil_id, "UPDATE perfis SET ip_saida = ?, pais = ? WHERE id = ?", (ip, pais))
