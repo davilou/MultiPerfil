@@ -70,7 +70,7 @@ def _saida(perfil: Perfil, registro: Registro) -> dict:
             "status": sessao.status, "favorito": perfil.favorito, "criado_em": perfil.criado_em,
             "editado_em": perfil.editado_em, "ultimo_inicio": perfil.ultimo_inicio,
             "pais": perfil.pais, "ip_saida": perfil.ip_saida,
-            "cdp": sessao.ws if sessao.status is Status.ABERTO else None}
+            "cdp": sessao.ws if sessao.status is Status.ABERTO else None, "erro": sessao.erro}
 
 
 def _exigir_fechado(deps: Dependencias, perfil_id: str) -> None:
@@ -123,7 +123,7 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
             deps.repo.criar(perfil)
         except PerfilExiste:
             raise HTTPException(409, f"perfil {novo.id} já existe") from None
-        return _saida(perfil, deps.registro)
+        return _saida(deps.repo.obter(perfil.id), deps.registro)
 
     @app.patch("/perfis/{perfil_id}")
     def editar(perfil_id: str, edicao: EdicaoPerfil) -> dict:

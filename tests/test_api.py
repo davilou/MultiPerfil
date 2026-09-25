@@ -202,3 +202,18 @@ def test_pagina_do_app(montar):
     cliente, _, _ = montar()
     r = cliente.get("/")
     assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+
+
+def test_criar_devolve_datas_do_banco(montar):
+    cliente, _, _ = montar()
+    corpo = cliente.post("/perfis", json=NOVO).json()
+    assert corpo["criado_em"] and corpo["editado_em"] == corpo["criado_em"]
+
+
+def test_lista_traz_mensagem_de_erro(montar):
+    cliente, lancador, _ = montar()
+    cliente.post("/perfis", json=NOVO)
+    cliente.post("/perfis/canal-a/abrir")
+    lancador.abertos["canal-a"] = 5
+    p = cliente.get("/perfis").json()[0]
+    assert p["status"] == "erro" and "5" in p["erro"]
