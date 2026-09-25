@@ -1680,7 +1680,18 @@ git commit -m "feat: helper abrir_perfil para scripts Playwright"
 
 ## Resultado do portão (preencher na Tarefa 6)
 
-- Login persistiu na 2ª abertura: _
-- Fingerprint idêntico (hash canvas 1ª / 2ª): _ / _
-- Fuso impresso × país do proxy: _
-- Janela × tela: _
+Medido em 2026-09-25 com proxy HTTP na Eslováquia (3,6 Mbit/s; direto: 12 Mbit/s).
+
+- Login persistiu na 2ª abertura: **SIM** — com `storage_state`, `studio.youtube.com`
+  abriu direto no canal, sem `accounts.google.com`. O Google aceitou o login no Camoufox.
+- Fingerprint idêntico entre aberturas: **não medido** — as execuções seguintes travaram.
+- Fuso × país do proxy: **FALHOU com só o config** (vazou `America/Sao_Paulo`); passa
+  (`Europe/Bratislava`) com `timezone_id` no `new_context`, como
+  `camoufox.async_api.AsyncNewContext` faz. Idioma `sk-SK` já saía certo.
+- Janela × tela: 1584×795 dentro de 1600×900 — ok.
+- **Instabilidade do modo servidor:** `new_context()`/`new_page()` pela conexão `ws`
+  travam de forma intermitente (mesma variante passa numa rodada e trava na outra).
+  O fechamento às vezes passa de 15 s e deixa `camoufox.exe` órfão, mesmo com
+  `taskkill /T`. Tempos típicos quando não trava: subir 9–16 s, sessão 10 s,
+  1ª aba 6 s, Studio 11–30 s (cache sempre frio), fechar 6–11 s.
+- Decisão pendente: pesquisa de alternativa ao `launch_server` (experimental).

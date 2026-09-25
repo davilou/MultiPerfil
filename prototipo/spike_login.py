@@ -32,18 +32,20 @@ SONDA = """() => {
 }"""
 
 
-def _perfil() -> Perfil:
+def _perfil() -> tuple[Perfil, str]:
     PASTA.mkdir(parents=True, exist_ok=True)
     arquivo = PASTA / "config.json"
     if not arquivo.exists():
         arquivo.write_text(json.dumps(gerar_congelado("windows", launch_options)))
     proxy = parse_proxy(ARQUIVO_PROXY.read_text(encoding="utf-8"))
-    print("proxy:", testar(proxy, public_ip, get_geolocation))
-    return Perfil("spike", "Spike", "windows", proxy, json.loads(arquivo.read_text()), "")
+    resultado = testar(proxy, public_ip, get_geolocation)
+    print("proxy:", resultado)
+    perfil = Perfil("spike", "Spike", "windows", proxy, json.loads(arquivo.read_text()), "")
+    return perfil, resultado.fuso
 
 
 async def main() -> None:
-    perfil, lancador = _perfil(), Lancador()
+    (perfil, fuso), lancador = _perfil(), Lancador()
     sessao = PASTA / "sessao.json"
     ws = lancador.abrir(perfil)
     print("ws:", ws)
@@ -51,7 +53,11 @@ async def main() -> None:
         async with async_playwright() as pw:
             browser = await pw.firefox.connect(ws)
             ctx = await browser.new_context(
-                no_viewport=True, storage_state=str(sessao) if sessao.exists() else None
+                no_viewport=True,
+                storage_state=str(sessao) if sessao.exists() else None,
+                # No modo servidor o fuso é por contexto (camoufox.async_api.AsyncNewContext
+                # faz igual); só o config deixa vazar o fuso real da máquina.
+                timezone_id=fuso,
             )
             page = await ctx.new_page()
             sonda = await page.evaluate(SONDA)
