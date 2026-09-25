@@ -217,3 +217,18 @@ def test_lista_traz_mensagem_de_erro(montar):
     lancador.abertos["canal-a"] = 5
     p = cliente.get("/perfis").json()[0]
     assert p["status"] == "erro" and "5" in p["erro"]
+
+
+def test_mostrar_janela_chama_o_app(tmp_path):
+    chamadas = []
+    deps = Dependencias(repo=Repositorio(tmp_path / "p.db"), lancador=LancadorFalso(),
+                        registro=Registro(), pasta_perfis=tmp_path / "perfis",
+                        nova_seed=lambda: 1, testar_proxy=_proxy_ok)
+    cliente = TestClient(criar_app(deps, mostrar_janela=lambda: chamadas.append(1)))
+    assert cliente.post("/janela/mostrar").status_code == 204
+    assert chamadas == [1]
+
+
+def test_mostrar_janela_sem_app_da_404(montar):
+    cliente, _, _ = montar()
+    assert cliente.post("/janela/mostrar").status_code == 404

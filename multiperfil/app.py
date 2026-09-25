@@ -9,6 +9,7 @@ import logging
 import os
 import socket
 import threading
+import urllib.request
 from pathlib import Path
 
 import uvicorn
@@ -26,23 +27,45 @@ def porta_ocupada(porta: int) -> bool:
         return s.connect_ex(("127.0.0.1", porta)) == 0
 
 
+def pedir_para_aparecer() -> bool:
+    """Já existe um MultiPerfil aberto? Pede a ele que traga a janela à frente."""
+    pedido = urllib.request.Request(f"http://127.0.0.1:{PORTA}/janela/mostrar", method="POST")
+    try:
+        with urllib.request.urlopen(pedido, timeout=3) as resposta:
+            return resposta.status == 204
+    except OSError:
+        return False
+
+
+def trazer_a_frente(janela: webview.Window) -> None:
+    janela.restore()
+    janela.show()
+    janela.on_top = True  # no Windows, alternar on_top é o que tira a janela de trás
+    janela.on_top = False
+
+
+def avisar_porta_em_uso() -> None:
+    webview.create_window("MultiPerfil", html="<p style='font:14px sans-serif;padding:24px'>"
+                          f"Outro programa está usando a porta {PORTA}. Feche-o e abra o "
+                          "MultiPerfil de novo.</p>", width=460, height=170)
+    webview.start()
+
+
 def main() -> None:
     os.chdir(RAIZ)  # o atalho pode abrir com outra pasta de trabalho
     dados = RAIZ / "dados"
     logging.basicConfig(filename=dados / "app.log", level=logging.INFO,
                         format="%(asctime)s %(name)s %(message)s")
     if porta_ocupada(PORTA):
-        webview.create_window("MultiPerfil", html="<p style='font:14px sans-serif;padding:24px'>"
-                              "O MultiPerfil já está aberto (porta 8800 em uso).</p>",
-                              width=420, height=160)
-        webview.start()
+        if not pedir_para_aparecer():
+            avisar_porta_em_uso()
         return
     deps = montar_dependencias(dados, (RAIZ / NAVEGADOR_PADRAO).resolve())
-    servidor = uvicorn.Server(uvicorn.Config(criar_app(deps), host="127.0.0.1", port=PORTA,
-                                             log_config=None))
-    threading.Thread(target=servidor.run, daemon=True).start()
     janela = webview.create_window("MultiPerfil", f"http://127.0.0.1:{PORTA}/",
                                    width=1400, height=860, min_size=(1000, 600))
+    app = criar_app(deps, mostrar_janela=lambda: trazer_a_frente(janela))
+    servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=PORTA, log_config=None))
+    threading.Thread(target=servidor.run, daemon=True).start()
     janela.events.closed += lambda: _encerrar(deps, servidor)
     webview.start()
 

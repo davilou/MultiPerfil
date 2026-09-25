@@ -90,7 +90,9 @@ def _conferir_processo(deps: Dependencias, perfil_id: str) -> None:
         deps.registro.marcar_erro(perfil_id, f"o navegador terminou com código {codigo}")
 
 
-def criar_app(deps: Dependencias) -> FastAPI:
+def criar_app(deps: Dependencias, mostrar_janela: Callable[[], None] | None = None) -> FastAPI:
+    """`mostrar_janela`: o app desktop passa como trazer a janela à frente, para que abrir
+    o atalho de novo não crie uma segunda instância."""
     app = FastAPI(title="MultiPerfil")
 
     @app.exception_handler(PerfilInexistente)
@@ -103,6 +105,14 @@ def criar_app(deps: Dependencias) -> FastAPI:
 
     _rotas_cadastro(app, deps)
     _rotas_sessao(app, deps)
+
+    @app.post("/janela/mostrar", status_code=204)
+    def mostrar() -> Response:
+        if mostrar_janela is None:
+            raise HTTPException(404, "sem janela: a API está rodando sem o app desktop")
+        mostrar_janela()
+        return Response(status_code=204)
+
     app.mount("/", StaticFiles(directory=PASTA_UI, html=True), name="ui")
     return app
 
