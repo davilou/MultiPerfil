@@ -1,1 +1,93 @@
-<!doctype html><title>MultiPerfil</title>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MultiPerfil</title>
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+  <header class="topo cartao">
+    <div class="marca">
+      <span class="marca-glifo" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="marca-nome">Multi<b>Perfil</b></span>
+    </div>
+    <span class="topo-sep"></span>
+    <span class="topo-sub">Perfis de navegador</span>
+  </header>
+
+  <aside class="lateral cartao">
+    <nav class="filtros" aria-label="Filtros">
+      <button class="filtro ativo" data-filtro="todos">
+        <span class="ico" data-ico="grade"></span><span>Todos os perfis</span><b id="n-todos">0</b>
+      </button>
+      <button class="filtro" data-filtro="rodando">
+        <span class="ico" data-ico="pulso"></span><span>Rodando</span><b id="n-rodando">0</b>
+      </button>
+      <button class="filtro" data-filtro="favoritos">
+        <span class="ico" data-ico="estrela"></span><span>Favoritos</span><b id="n-favoritos">0</b>
+      </button>
+    </nav>
+    <p class="lateral-nota">Cada perfil tem seu próprio proxy, fuso e login salvo.</p>
+  </aside>
+
+  <main class="principal cartao">
+    <div class="ferramentas">
+      <button class="btn-primario" id="btn-criar"><span class="ico" data-ico="mais"></span>Criar</button>
+      <div class="grupo-acoes" role="toolbar" aria-label="Ações nos selecionados">
+        <button class="acao" id="acao-abrir" title="Abrir selecionados" disabled><span class="ico" data-ico="play"></span></button>
+        <button class="acao" id="acao-fechar" title="Fechar selecionados" disabled><span class="ico" data-ico="parar"></span></button>
+        <button class="acao" id="acao-testar" title="Testar proxy dos selecionados" disabled><span class="ico" data-ico="radar"></span></button>
+        <button class="acao perigo" id="acao-remover" title="Remover selecionados" disabled><span class="ico" data-ico="lixo"></span></button>
+      </div>
+      <span class="n-selecionados" id="n-selecionados"></span>
+      <label class="busca">
+        <span class="ico" data-ico="lupa"></span>
+        <input id="busca" type="search" placeholder="Buscar por nome, notas ou país" autocomplete="off">
+      </label>
+    </div>
+
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th class="c-check"><input type="checkbox" id="check-todos" aria-label="Selecionar página"></th>
+            <th class="c-fav"></th>
+            <th class="c-estado"></th>
+            <th>Nome</th>
+            <th>Proxy</th>
+            <th>Notas</th>
+            <th>SO</th>
+            <th>Idioma</th>
+            <th>Último início</th>
+            <th>Última edição</th>
+            <th>Criado</th>
+            <th class="c-menu"></th>
+          </tr>
+        </thead>
+        <tbody id="corpo"></tbody>
+      </table>
+      <div class="vazio" id="vazio" hidden></div>
+    </div>
+
+    <footer class="rodape">
+      <label class="por-pagina">Linhas por página
+        <select id="por-pagina">
+          <option>10</option><option>25</option><option>50</option>
+        </select>
+      </label>
+      <span id="faixa">0–0 de 0</span>
+      <button class="acao" id="pag-ant" title="Página anterior"><span class="ico" data-ico="esq"></span></button>
+      <button class="acao" id="pag-prox" title="Próxima página"><span class="ico" data-ico="dir"></span></button>
+    </footer>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="util.js"></script>
+  <script src="api.js"></script>
+  <script src="tabela.js"></script>
+  <script src="modais.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
