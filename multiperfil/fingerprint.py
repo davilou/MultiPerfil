@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Mapping
 
+import orjson
+
 Config = dict[str, Any]
 GeradorOpcoes = Callable[..., Config]
 
@@ -46,7 +48,8 @@ def montar_config(congelado: Config, gerado: Config) -> Config:
 
 
 def dividir_em_env(config: Config, tamanho: int) -> dict[str, str]:
-    texto = json.dumps(config, separators=(",", ":"), ensure_ascii=False)
+    # Mesmo serializador de camoufox.utils.get_env_vars: o Firefox lê o que ele leria.
+    texto = orjson.dumps(config).decode("utf-8")
     return {
         f"{PREFIXO_ENV}{i // tamanho + 1}": texto[i : i + tamanho]
         for i in range(0, len(texto), tamanho)
