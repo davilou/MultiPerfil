@@ -9,11 +9,21 @@ from typing import Callable, Protocol
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from multiperfil.estado import PerfilJaAberto, Registro, Status
 from multiperfil.proxy import ErroProxy, Proxy, ResultadoProxy, descrever, parse_proxy
-from multiperfil.repositorio import Perfil, PerfilExiste, PerfilInexistente, Repositorio, validar_id
+from multiperfil.repositorio import (
+    Perfil,
+    PerfilExiste,
+    PerfilInexistente,
+    Repositorio,
+    agora_iso,
+    validar_id,
+)
+
+PASTA_UI = Path(__file__).parent / "ui"
 
 
 class LancadorProto(Protocol):
@@ -49,10 +59,18 @@ class EdicaoPerfil(BaseModel):
     notas: str = ""
 
 
+class Favorito(BaseModel):
+    favorito: bool
+
+
 def _saida(perfil: Perfil, registro: Registro) -> dict:
+    sessao = registro.status(perfil.id)
     return {"id": perfil.id, "nome": perfil.nome, "sistema": perfil.sistema,
             "proxy": descrever(perfil.proxy), "idioma": perfil.idioma, "notas": perfil.notas,
-            "status": registro.status(perfil.id).status}
+            "status": sessao.status, "favorito": perfil.favorito, "criado_em": perfil.criado_em,
+            "editado_em": perfil.editado_em, "ultimo_inicio": perfil.ultimo_inicio,
+            "pais": perfil.pais, "ip_saida": perfil.ip_saida,
+            "cdp": sessao.ws if sessao.status is Status.ABERTO else None}
 
 
 def _exigir_fechado(deps: Dependencias, perfil_id: str) -> None:
@@ -85,6 +103,7 @@ def criar_app(deps: Dependencias) -> FastAPI:
 
     _rotas_cadastro(app, deps)
     _rotas_sessao(app, deps)
+    app.mount("/", StaticFiles(directory=PASTA_UI, html=True), name="ui")
     return app
 
 
@@ -109,8 +128,15 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
     @app.patch("/perfis/{perfil_id}")
     def editar(perfil_id: str, edicao: EdicaoPerfil) -> dict:
         _exigir_fechado(deps, perfil_id)
-        deps.repo.atualizar(perfil_id, nome=edicao.nome, proxy=parse_proxy(edicao.proxy),
+        atual = deps.repo.obter(perfil_id)
+        proxy = atual.proxy if edicao.proxy == descrever(atual.proxy) else parse_proxy(edicao.proxy)
+        deps.repo.atualizar(perfil_id, nome=edicao.nome, proxy=proxy,
                             idioma=edicao.idioma, notas=edicao.notas)
+        return _saida(deps.repo.obter(perfil_id), deps.registro)
+
+    @app.put("/perfis/{perfil_id}/favorito")
+    def favoritar(perfil_id: str, corpo: Favorito) -> dict:
+        deps.repo.definir_favorito(perfil_id, corpo.favorito)
         return _saida(deps.repo.obter(perfil_id), deps.registro)
 
     @app.delete("/perfis/{perfil_id}", status_code=204)
@@ -131,9 +157,11 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
     @app.post("/perfis/{perfil_id}/testar-proxy")
     def testar_proxy(perfil_id: str) -> dict:
         try:
-            return vars(deps.testar_proxy(deps.repo.obter(perfil_id).proxy))
+            resultado = deps.testar_proxy(deps.repo.obter(perfil_id).proxy)
         except ErroProxy as erro:
             raise HTTPException(502, str(erro)) from None
+        deps.repo.registrar_teste(perfil_id, ip=resultado.ip, pais=resultado.pais)
+        return vars(resultado)
 
 
 def _rotas_sessao(app: FastAPI, deps: Dependencias) -> None:
@@ -146,12 +174,14 @@ def _rotas_sessao(app: FastAPI, deps: Dependencias) -> None:
         except PerfilJaAberto as erro:
             raise HTTPException(409, {"erro": str(erro), "cdp": erro.ws}) from None
         try:
-            fuso = deps.testar_proxy(perfil.proxy).fuso
-            cdp = deps.lancador.abrir(perfil, fuso)
+            resultado = deps.testar_proxy(perfil.proxy)
+            deps.repo.registrar_teste(perfil_id, ip=resultado.ip, pais=resultado.pais)
+            cdp = deps.lancador.abrir(perfil, resultado.fuso)
         except Exception as erro:
             deps.registro.liberar(perfil_id)
             raise HTTPException(502 if isinstance(erro, ErroProxy) else 500, str(erro)) from None
         deps.registro.marcar_aberto(perfil_id, cdp)
+        deps.repo.registrar_inicio(perfil_id, agora_iso())
         return {"cdp": cdp}
 
     @app.post("/perfis/{perfil_id}/fechar")

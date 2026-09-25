@@ -155,3 +155,50 @@ def test_remover_com_arquivo_em_uso_da_409_e_mantem_perfil(montar):
         resposta = cliente.delete("/perfis/canal-a")
     assert resposta.status_code == 409
     assert cliente.get("/perfis").json()[0]["id"] == "canal-a"
+
+
+def test_saida_tem_campos_da_tabela(montar):
+    cliente, _, _ = montar()
+    cliente.post("/perfis", json=NOVO)
+    p = cliente.get("/perfis").json()[0]
+    for campo in ("favorito", "criado_em", "editado_em", "ultimo_inicio", "pais", "ip_saida", "cdp"):
+        assert campo in p
+    assert p["cdp"] is None
+
+
+def test_abrir_registra_inicio_teste_e_cdp_na_lista(montar):
+    cliente, _, _ = montar()
+    cliente.post("/perfis", json=NOVO)
+    cliente.post("/perfis/canal-a/abrir")
+    p = cliente.get("/perfis").json()[0]
+    assert p["ultimo_inicio"] and (p["pais"], p["ip_saida"]) == ("SK", "5.6.7.8")
+    assert p["cdp"] == "http://127.0.0.1:9/canal-a"
+
+
+def test_testar_proxy_registra_pais(montar):
+    cliente, _, _ = montar()
+    cliente.post("/perfis", json=NOVO)
+    cliente.post("/perfis/canal-a/testar-proxy")
+    assert cliente.get("/perfis").json()[0]["pais"] == "SK"
+
+
+def test_favorito(montar):
+    cliente, _, _ = montar()
+    cliente.post("/perfis", json=NOVO)
+    assert cliente.put("/perfis/canal-a/favorito", json={"favorito": True}).json()["favorito"] is True
+    assert cliente.put("/perfis/nada/favorito", json={"favorito": True}).status_code == 404
+
+
+def test_editar_com_proxy_mascarado_mantem_senha(montar):
+    cliente, _, deps = montar()
+    cliente.post("/perfis", json=NOVO)
+    mascarado = cliente.get("/perfis").json()[0]["proxy"]
+    edicao = {"nome": "Novo", "proxy": mascarado, "idioma": "pt-BR", "notas": ""}
+    assert cliente.patch("/perfis/canal-a", json=edicao).status_code == 200
+    assert deps.repo.obter("canal-a").proxy.senha == "segredo"
+
+
+def test_pagina_do_app(montar):
+    cliente, _, _ = montar()
+    r = cliente.get("/")
+    assert r.status_code == 200 and "text/html" in r.headers["content-type"]
