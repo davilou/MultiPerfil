@@ -130,6 +130,7 @@ def main() -> None:
             subprocess.run(["taskkill", "/pid", str(chrome.pid), "/T", "/F"], capture_output=True)
             marca("chrome precisou ser morto")
         repassador.kill()
+        (PASTA / "proxy.auth").unlink(missing_ok=True)
 
 
 main()
