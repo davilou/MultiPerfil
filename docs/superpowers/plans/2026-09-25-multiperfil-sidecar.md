@@ -1694,4 +1694,23 @@ Medido em 2026-09-25 com proxy HTTP na Eslováquia (3,6 Mbit/s; direto: 12 Mbit/
   O fechamento às vezes passa de 15 s e deixa `camoufox.exe` órfão, mesmo com
   `taskkill /T`. Tempos típicos quando não trava: subir 9–16 s, sessão 10 s,
   1ª aba 6 s, Studio 11–30 s (cache sempre frio), fechar 6–11 s.
-- Decisão pendente: pesquisa de alternativa ao `launch_server` (experimental).
+- Pesquisa (2026-09-25): as falhas são issues abertas do Camoufox (#253 launch_server
+  ignora perfil, #553 new_context/new_page travam); o README avisa "may not be suitable
+  for stable production use". **Decisão: trocar para fingerprint-chromium.**
+
+## Resultado do portão 2 — fingerprint-chromium 148.0.7778.215 (2026-09-25)
+
+`prototipo/spike_chromium.py`: `--user-data-dir` por perfil, `--fingerprint=<seed>`,
+`--timezone`, proxy com senha via repassador local `pproxy` (credencial lida de arquivo),
+`connect_over_cdp`, fechamento por CDP `Browser.close`.
+
+- Login persistiu: **SIM** (pasta de perfil real; 2ª abertura foi direto ao canal).
+- Fingerprint idêntico entre aberturas: **SIM** (canvas `f0ef7e4e9137db28` nas duas).
+- Seeds diferentes ⇒ fingerprints diferentes: **SIM** (canvas, GPU, núcleos mudam; mesma
+  seed repete).
+- Fuso: `Europe/Bratislava` direto pela flag. Tela = a real (1920×1080).
+- Tempos: Chrome no ar 2,2 s; Studio logado 5,2 s; ciclo completo 9 s (Camoufox: 47–67 s).
+  Fechar: 0,3 s, zero órfãos.
+- Achados: `--proxy-server` não aceita senha (doc) ⇒ repassador local obrigatório;
+  `get_geolocation(ip).locale` sorteia o idioma entre as línguas do país (saiu `de-SK`)
+  ⇒ idioma precisa ser escolhido uma vez e salvo no perfil.
