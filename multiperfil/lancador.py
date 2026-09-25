@@ -68,7 +68,12 @@ def _matar_forcado(processo: subprocess.Popen) -> None:
 
 
 def _pedir_fechamento(url_cdp: str) -> None:
-    """Browser.close pelo CDP: o Chromium grava cookies e cache antes de sair."""
+    """Browser.close pelo CDP: o Chromium grava cookies e cache antes de sair.
+
+    Encerra o navegador para todos — um script externo ainda conectado perde a conexão.
+    Usa a API síncrona do Playwright: só pode ser chamado fora de um loop asyncio (as
+    rotas `def` do FastAPI rodam no threadpool, sem loop). Não mover para `async def`.
+    """
     with sync_playwright() as pw:
         browser = pw.chromium.connect_over_cdp(url_cdp, timeout=5000)
         browser.new_browser_cdp_session().send("Browser.close")

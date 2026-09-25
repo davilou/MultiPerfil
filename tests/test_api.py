@@ -143,3 +143,15 @@ def test_remover_apaga_pasta_do_perfil(montar):
 def test_perfil_inexistente_404(montar):
     cliente, _, _ = montar()
     assert cliente.post("/perfis/nada/abrir").status_code == 404
+
+
+def test_remover_com_arquivo_em_uso_da_409_e_mantem_perfil(montar):
+    cliente, _, deps = montar()
+    cliente.post("/perfis", json=NOVO)
+    pasta = deps.pasta_perfis / "canal-a"
+    pasta.mkdir(parents=True)
+    with open(pasta / "Cookies", "w") as preso:  # no Windows, arquivo aberto não apaga
+        preso.write("x")
+        resposta = cliente.delete("/perfis/canal-a")
+    assert resposta.status_code == 409
+    assert cliente.get("/perfis").json()[0]["id"] == "canal-a"

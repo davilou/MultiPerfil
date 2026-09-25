@@ -116,10 +116,16 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
     @app.delete("/perfis/{perfil_id}", status_code=204)
     def remover(perfil_id: str) -> Response:
         _exigir_fechado(deps, perfil_id)
-        deps.repo.remover(perfil_id)
+        deps.repo.obter(perfil_id)
         pasta = deps.pasta_perfis / perfil_id
-        if pasta.exists():
-            shutil.rmtree(pasta)  # login e cookies do perfil: apagar o perfil apaga tudo
+        # Pasta antes do banco: se um arquivo estiver preso (Chromium recém-caído,
+        # antivírus), o perfil continua na lista para tentar de novo.
+        try:
+            if pasta.exists():
+                shutil.rmtree(pasta)  # login e cookies do perfil: apagar o perfil apaga tudo
+        except OSError as erro:
+            raise HTTPException(409, f"arquivos do perfil em uso, tente de novo: {erro}") from None
+        deps.repo.remover(perfil_id)
         return Response(status_code=204)
 
     @app.post("/perfis/{perfil_id}/testar-proxy")

@@ -85,6 +85,10 @@ variáveis `CAMOU_CONFIG_*`), não por `config=`. Detalhes no plano do sidecar.
 - Processo do Camoufox que morre sozinho ⇒ status `erro` com a causa, nunca `aberto`.
 - Senha de proxy nunca aparece em log nem na resposta da API (mascarada).
 - A API escuta só em `127.0.0.1`.
+- Modelo de ameaça: máquina de um usuário só. Com um perfil aberto, a porta CDP e o
+  repassador de proxy (ambos em `127.0.0.1`, sem senha) dão a qualquer processo local o
+  controle do navegador logado e o uso do proxy. Aceito para uso pessoal; não rodar em
+  máquina compartilhada nem expor essas portas (port forwarding, túnel).
 
 ## Testes
 
