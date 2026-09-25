@@ -8,7 +8,6 @@ Rodar DUAS vezes. Na primeira, fazer login à mão na janela e apertar Enter.
 import asyncio
 import hashlib
 import json
-import os
 from pathlib import Path
 
 from camoufox.ip import public_ip
@@ -22,6 +21,8 @@ from multiperfil.proxy import parse_proxy, testar
 from multiperfil.repositorio import Perfil
 
 PASTA = Path("dados/spike")
+ARQUIVO_PROXY = Path("dados/proxy.txt")
+PRAZO_LOGIN_MS = 10 * 60 * 1000
 SONDA = """() => {
   const c = document.createElement('canvas'); const g = c.getContext('2d');
   g.font = '16px Arial'; g.fillText('MultiPerfil 🦊', 2, 20);
@@ -36,7 +37,7 @@ def _perfil() -> Perfil:
     arquivo = PASTA / "config.json"
     if not arquivo.exists():
         arquivo.write_text(json.dumps(gerar_congelado("windows", launch_options)))
-    proxy = parse_proxy(os.environ["MULTIPERFIL_PROXY"])
+    proxy = parse_proxy(ARQUIVO_PROXY.read_text(encoding="utf-8"))
     print("proxy:", testar(proxy, public_ip, get_geolocation))
     return Perfil("spike", "Spike", "windows", proxy, json.loads(arquivo.read_text()), "")
 
@@ -57,7 +58,9 @@ async def main() -> None:
             sonda["canvas"] = hashlib.sha256(sonda["canvas"].encode()).hexdigest()[:16]
             print("fingerprint:", sonda)
             await page.goto("https://studio.youtube.com")
-            input("Se pediu login, faça na janela. Depois aperte Enter aqui...")
+            print("pediu login:", "accounts.google.com" in page.url, "| url:", page.url)
+            await page.wait_for_url("https://studio.youtube.com/**", timeout=PRAZO_LOGIN_MS)
+            await page.wait_for_load_state("load")
             print("url final:", page.url)
             await ctx.storage_state(path=str(sessao))
             await browser.close()

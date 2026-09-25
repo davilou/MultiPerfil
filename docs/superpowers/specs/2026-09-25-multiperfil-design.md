@@ -18,14 +18,14 @@ rotação de fingerprint, farm de contas, evasão de bloqueio.
 | Decisão | Escolha | Porquê |
 |---|---|---|
 | Motor | Camoufox (Firefox com fingerprint alterado em C++) | Spoof no motor, não em JS injetado — o que plugins "stealth" no Chrome não conseguem esconder |
-| Interface | App desktop Tauri | Pedido do Davi |
-| Backend | Sidecar Python (FastAPI + Camoufox) iniciado pelo Tauri | Camoufox e BrowserForge são libs Python oficiais; Rust ou port JS exigiriam reimplementar |
+| Interface | App desktop pywebview (era Tauri até 2026-09-25) | Davi quer janela, sem linha de comando. pywebview usa o WebView2 que já vem no Windows 11 — mesma janela HTML do Tauri, sem instalar Rust + Build Tools (~5 GB) |
+| Backend | Sidecar Python (FastAPI + Camoufox) no mesmo processo do app | Camoufox e BrowserForge são libs Python oficiais; Rust ou port JS exigiriam reimplementar |
 | Armazenamento | SQLite + pasta por perfil | Um arquivo, sem serviço |
 
 ## Arquitetura
 
 ```
-Tauri (janela)  ──HTTP──┐
+app (janela)    ──HTTP──┐
                         ├──>  sidecar Python em 127.0.0.1:8800
 script do Davi ──HTTP───┘        │
      │                           ├─ perfis/    repositório SQLite
@@ -33,7 +33,7 @@ script do Davi ──HTTP───┘        │
      └──ws (Playwright)──>       └─ navegador/ processos Camoufox, um por perfil aberto
 ```
 
-O Tauri não tem lógica: é cliente da mesma API que os scripts usam.
+A janela não tem lógica: é cliente da mesma API que os scripts usam.
 
 ### Unidades
 
@@ -55,7 +55,7 @@ O Tauri não tem lógica: é cliente da mesma API que os scripts usam.
 - **`cliente/`** — helper Python de uma função para os scripts:
   `async with abrir_perfil("canal-a") as page:` — chama a API, conecta, e no fim salva
   a sessão e fecha. Esconde de cada script o detalhe de como o login persiste.
-- **`app/`** — Tauri: lista de perfis com status, formulário (nome, proxy, OS),
+- **`app/`** — pywebview + HTML: lista de perfis com status, formulário (nome, proxy, OS),
   botões testar/abrir/fechar.
 
 ## Persistência do login — risco nº 1
@@ -99,15 +99,15 @@ manual por marco.
    login Google/YouTube Studio persistindo entre duas aberturas; rodar um script de
    publicação existente contra ele. Decide plano A/B e mede o que quebra no Firefox.
 2. Sidecar: `perfis/`, `proxy/`, `navegador/`, `api/`, `cliente/` + testes.
-3. App Tauri.
+3. App desktop (pywebview), aberto por atalho com duplo clique.
 
 ## Dependências novas
 
 - `camoufox[geoip]` — motor + banco de geolocalização (baixa o binário do Camoufox
   no primeiro `python -m camoufox fetch`).
 - `fastapi`, `uvicorn` — API.
-- **Rust (rustup) + Build Tools do Visual Studio** — exigidos pelo Tauri; não
-  estão instalados nesta máquina. Só necessários no passo 3.
+- `pywebview` — janela desktop do passo 3 (substituiu o Tauri, que exigia Rust +
+  Build Tools do Visual Studio).
 
 ## Riscos abertos
 
