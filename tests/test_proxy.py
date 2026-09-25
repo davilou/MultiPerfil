@@ -21,6 +21,18 @@ def test_parse_formato_revendedor_host_porta_usuario_senha():
     assert parse_proxy("1.2.3.4:8000:ana:pw") == Proxy("http", "1.2.3.4", 8000, "ana", "pw")
 
 
+def test_parse_esquema_com_formato_revendedor():
+    assert parse_proxy("socks5://1.2.3.4:1080:ana:pw") == Proxy("socks5", "1.2.3.4", 1080, "ana", "pw")
+    assert parse_proxy("http://h:8000:ana:pw") == Proxy("http", "h", 8000, "ana", "pw")
+
+
+def test_parse_porta_invalida_nao_ecoa_credenciais():
+    with pytest.raises(ValueError) as erro:
+        parse_proxy("http://ana:segredo@h:abc")
+    assert "segredo" not in str(erro.value)
+    assert erro.value.__cause__ is None and erro.value.__suppress_context__
+
+
 def test_parse_host_porta_sem_credenciais():
     assert parse_proxy(" 1.2.3.4:8000 ") == Proxy("http", "1.2.3.4", 8000)
 

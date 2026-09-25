@@ -8,10 +8,10 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 ESQUEMAS: tuple[str, ...] = ("http", "https", "socks5")
-FORMATO_ESPERADO = "esquema://usuario:senha@host:porta, host:porta ou host:porta:usuario:senha"
+FORMATO_ESPERADO = "esquema://usuario:senha@host:porta, [esquema://]host:porta ou [esquema://]host:porta:usuario:senha"
 
 
 @dataclass(frozen=True, repr=False)
@@ -39,27 +39,41 @@ class ErroProxy(Exception):
 
 
 def _normalizar(texto: str) -> str:
-    if "://" in texto:
-        return texto
-    partes = texto.split(":")
+    """Leva os formatos aceitos a `esquema://usuario:senha@host:porta`.
+
+    Revendedores entregam `host:porta:usuario:senha`, com ou sem `esquema://` na frente.
+    """
+    esquema, resto = texto.split("://", 1) if "://" in texto else ("http", texto)
+    if "@" in resto:
+        return f"{esquema}://{resto}"
+    partes = resto.split(":")
     if len(partes) == 2:
-        return f"http://{partes[0]}:{partes[1]}"
+        return f"{esquema}://{partes[0]}:{partes[1]}"
     if len(partes) == 4:
         host, porta, usuario, senha = partes
-        return f"http://{quote(usuario, safe='')}:{quote(senha, safe='')}@{host}:{porta}"
+        return f"{esquema}://{quote(usuario, safe='')}:{quote(senha, safe='')}@{host}:{porta}"
     raise ValueError(f"proxy em formato desconhecido; esperado {FORMATO_ESPERADO}")
+
+
+def _porta(url: SplitResult) -> int | None:
+    # urllib põe o trecho inteiro na mensagem do erro — com usuário e senha junto.
+    try:
+        return url.port
+    except ValueError:
+        raise ValueError(f"porta do proxy inválida; esperado {FORMATO_ESPERADO}") from None
 
 
 def parse_proxy(texto: str) -> Proxy:
     url = urlsplit(_normalizar(texto.strip()))
     if url.scheme not in ESQUEMAS:
         raise ValueError(f"esquema de proxy não suportado; use um de {ESQUEMAS}")
-    if not url.hostname or url.port is None:
+    porta = _porta(url)
+    if not url.hostname or porta is None:
         raise ValueError(f"proxy sem host ou porta; esperado {FORMATO_ESPERADO}")
     return Proxy(
         url.scheme,
         url.hostname,
-        url.port,
+        porta,
         unquote(url.username) if url.username else None,
         unquote(url.password) if url.password else None,
     )
