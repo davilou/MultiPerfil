@@ -68,6 +68,33 @@ function camposPerfil(perfil) {
   return { nome, idPrevia, proxy, sistema, idioma, notas };
 }
 
+function mostrarChecagem(alvo, tipo, texto) {
+  alvo.className = `checagem ${tipo}`;
+  alvo.textContent = texto;
+}
+
+/** Campo de proxy com "Checar proxy": testa sem salvar e mostra o resultado embaixo. */
+function campoProxy(c, perfil) {
+  const resultado = el("small", { class: "checagem" });
+  const botao = el("button", { class: "btn-sec btn-checar", type: "button", texto: "Checar proxy" });
+  botao.addEventListener("click", async () => {
+    const texto = c.proxy.value.trim();
+    if (!texto) return mostrarChecagem(resultado, "erro", "Cole o proxy antes de checar.");
+    botao.disabled = true;
+    mostrarChecagem(resultado, "", "Checando o proxy…");
+    try {
+      const r = await api.checarProxy(texto, perfil ? perfil.id : null);
+      mostrarChecagem(resultado, "ok", `Proxy funcionando: ${textoTeste(r)} · ${r.fuso}`);
+    } catch (falha) {
+      mostrarChecagem(resultado, "erro", falha.message);
+    } finally {
+      botao.disabled = false;
+    }
+  });
+  c.proxy.addEventListener("input", () => mostrarChecagem(resultado, "", ""));
+  return el("div", {}, [el("div", { class: "linha-proxy" }, [c.proxy, botao]), resultado]);
+}
+
 function lerCampos(c, perfil) {
   const dados = { nome: c.nome.value.trim(), proxy: c.proxy.value.trim(),
     idioma: c.idioma.ler(), notas: c.notas.value.trim() };
@@ -87,7 +114,7 @@ function modalPerfil(perfil, aoSalvar) {
   const form = el("form", {}, [
     el("h2", { texto: perfil ? `Editar ${perfil.nome}` : "Novo perfil" }),
     campo("Nome", el("div", {}, [c.nome, c.idPrevia])),
-    campo("Proxy", c.proxy, perfil ? "Deixe como está para manter a senha." : null),
+    campo("Proxy", campoProxy(c, perfil), perfil ? "Deixe como está para manter a senha." : null),
     el("div", { class: "linha-2" }, [campo("Idioma", c.idioma.bloco), campo("SO", c.sistema)]),
     campo("Notas", c.notas),
     erro,

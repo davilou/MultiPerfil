@@ -63,6 +63,11 @@ class Favorito(BaseModel):
     favorito: bool
 
 
+class ChecagemProxy(BaseModel):
+    proxy: str
+    perfil_id: str | None = None
+
+
 def _saida(perfil: Perfil, registro: Registro) -> dict:
     sessao = registro.status(perfil.id)
     return {"id": perfil.id, "nome": perfil.nome, "sistema": perfil.sistema,
@@ -163,6 +168,19 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
             raise HTTPException(409, f"arquivos do perfil em uso, tente de novo: {erro}") from None
         deps.repo.remover(perfil_id)
         return Response(status_code=204)
+
+    @app.post("/proxy/testar")
+    def checar_proxy(corpo: ChecagemProxy) -> dict:
+        """Testa sem salvar (botão do formulário). A tela nunca tem a senha: se o campo
+        ainda mostra o proxy mascarado do perfil, testa o proxy salvo dele."""
+        proxy = None
+        if corpo.perfil_id is not None:
+            salvo = deps.repo.obter(corpo.perfil_id).proxy
+            proxy = salvo if corpo.proxy == descrever(salvo) else None
+        try:
+            return vars(deps.testar_proxy(proxy or parse_proxy(corpo.proxy)))
+        except ErroProxy as erro:
+            raise HTTPException(502, str(erro)) from None
 
     @app.post("/perfis/{perfil_id}/testar-proxy")
     def testar_proxy(perfil_id: str) -> dict:

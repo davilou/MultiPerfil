@@ -232,3 +232,33 @@ def test_mostrar_janela_chama_o_app(tmp_path):
 def test_mostrar_janela_sem_app_da_404(montar):
     cliente, _, _ = montar()
     assert cliente.post("/janela/mostrar").status_code == 404
+
+
+def test_checar_proxy_sem_salvar(montar):
+    cliente, _, deps = montar()
+    r = cliente.post("/proxy/testar", json={"proxy": "http://u:segredo@h:1"})
+    assert r.status_code == 200 and r.json()["pais"] == "SK"
+    assert deps.repo.listar() == []
+
+
+def test_checar_proxy_mascarado_usa_o_salvo(tmp_path):
+    vistos = []
+    def testar(proxy):
+        vistos.append(proxy)
+        return _proxy_ok(proxy)
+    deps = Dependencias(repo=Repositorio(tmp_path / "p.db"), lancador=LancadorFalso(),
+                        registro=Registro(), pasta_perfis=tmp_path / "perfis",
+                        nova_seed=lambda: 1, testar_proxy=testar)
+    cliente = TestClient(criar_app(deps))
+    cliente.post("/perfis", json=NOVO)
+    mascarado = cliente.get("/perfis").json()[0]["proxy"]
+    r = cliente.post("/proxy/testar", json={"proxy": mascarado, "perfil_id": "canal-a"})
+    assert r.status_code == 200
+    assert vistos[-1].senha == "segredo"
+
+
+def test_checar_proxy_invalido_422_e_morto_502(montar):
+    cliente, _, _ = montar(testar=_proxy_morto)
+    assert cliente.post("/proxy/testar", json={"proxy": "lixo"}).status_code == 422
+    r = cliente.post("/proxy/testar", json={"proxy": "http://u:segredo@h:1"})
+    assert r.status_code == 502 and "segredo" not in r.text

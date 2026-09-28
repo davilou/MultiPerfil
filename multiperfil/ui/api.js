@@ -41,4 +41,5 @@ const api = {
   abrir: (id) => pedir("POST", `${caminhoPerfil(id)}/abrir`),
   fechar: (id) => pedir("POST", `${caminhoPerfil(id)}/fechar`),
   testarProxy: (id) => pedir("POST", `${caminhoPerfil(id)}/testar-proxy`),
+  checarProxy: (proxy, perfilId) => pedir("POST", "/proxy/testar", { proxy, perfil_id: perfilId }),
 };

@@ -199,3 +199,13 @@ select { height: 30px; padding: 0 8px; border: 1px solid var(--linha); border-ra
 
 @keyframes surgir { from { opacity: 0; } }
 @keyframes subir { from { opacity: 0; transform: translateY(6px); } }
+
+/* Checar proxy no formulário */
+.linha-proxy { display: flex; gap: 8px; }
+.linha-proxy input { flex: 1; min-width: 0; }
+.btn-checar { flex: none; white-space: nowrap; }
+.checagem { display: block; margin-top: 5px; }
+.checagem:empty { display: none; }
+.checagem.ok { color: var(--verde); }
+.checagem.erro { color: var(--vermelho); }
+.acao.com-texto { width: auto; display: inline-flex; gap: 6px; padding: 0 10px; font-size: 12.5px; }
