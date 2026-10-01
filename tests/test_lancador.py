@@ -36,3 +36,29 @@ def test_accept_lang_sem_regiao_nao_repete():
 def test_comando_matar_arvore():
     assert comando_matar_arvore(123, "nt") == ["taskkill", "/pid", "123", "/T", "/F"]
     assert comando_matar_arvore(123, "posix") is None
+
+
+def test_argumentos_sem_proxy_nem_fuso_usam_os_do_sistema():
+    perfil = Perfil("a", "A", "windows", None, 7, "pt-BR", "")
+    args = argumentos_chrome(Path("c.exe"), Path("p"), perfil, None, None, 9222)
+    assert not any(a.startswith(("--proxy-server", "--timezone")) for a in args)
+    assert "--fingerprint=7" in args and "--remote-debugging-port=9222" in args
+
+
+def test_lancador_sem_proxy_nao_sobe_repassador(tmp_path):
+    from multiperfil.lancador import Lancador
+
+    class RepassadorQueNaoPodeSerUsado:
+        def abrir(self, perfil_id, proxy):
+            raise AssertionError("perfil sem proxy não usa repassador")
+
+        def fechar(self, perfil_id):
+            pass
+
+    falso = tmp_path / "falso.exe"
+    falso.write_bytes(b"nao e um executavel")  # passa do "existe?" e falha no Popen
+    lancador = Lancador(falso, tmp_path, RepassadorQueNaoPodeSerUsado())
+    perfil = Perfil("a", "A", "windows", None, 7, "pt-BR", "")
+    import pytest
+    with pytest.raises(OSError):  # AssertionError aqui = repassador foi chamado
+        lancador.abrir(perfil, None)

@@ -3,7 +3,7 @@
 
 const IDIOMAS = ["pt-BR", "en-US", "es-ES", "de-DE", "fr-FR", "sk-SK"];
 const SISTEMAS = ["windows", "macos", "linux"];
-const DICA_PROXY = "http://usuario:senha@host:porta · host:porta:usuario:senha · socks5://host:porta";
+const DICA_PROXY = "Vazio = sem proxy · http://usuario:senha@host:porta · host:porta:usuario:senha";
 
 function mostrarModal(conteudo, aoFechar = () => {}) {
   const veu = el("div", { class: "veu" }, el("div", { class: "modal", role: "dialog" }, conteudo));
@@ -59,7 +59,7 @@ function camposPerfil(perfil) {
       idPrevia.textContent = `id: ${idDoNome(nome.value) || "—"}`;
     });
   }
-  const proxy = el("input", { value: perfil ? perfil.proxy : "", placeholder: DICA_PROXY, spellcheck: "false" });
+  const proxy = el("input", { value: perfil ? perfil.proxy || "" : "", placeholder: DICA_PROXY, spellcheck: "false" });
   const sistema = seletor(SISTEMAS, perfil ? perfil.sistema : "windows");
   sistema.disabled = Boolean(perfil);
   const idioma = campoIdioma(perfil ? perfil.idioma : "pt-BR");
@@ -79,7 +79,7 @@ function campoProxy(c, perfil) {
   const botao = el("button", { class: "btn-sec btn-checar", type: "button", texto: "Checar proxy" });
   botao.addEventListener("click", async () => {
     const texto = c.proxy.value.trim();
-    if (!texto) return mostrarChecagem(resultado, "erro", "Cole o proxy antes de checar.");
+    if (!texto) return mostrarChecagem(resultado, "", "Sem proxy: o perfil vai usar o seu IP real.");
     botao.disabled = true;
     mostrarChecagem(resultado, "", "Checando o proxy…");
     try {

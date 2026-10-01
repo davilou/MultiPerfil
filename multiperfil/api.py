@@ -27,7 +27,7 @@ PASTA_UI = Path(__file__).parent / "ui"
 
 
 class LancadorProto(Protocol):
-    def abrir(self, perfil: Perfil, fuso: str) -> str: ...
+    def abrir(self, perfil: Perfil, fuso: str | None) -> str: ...
     def vivo(self, perfil_id: str) -> bool: ...
     def codigo_saida(self, perfil_id: str) -> int | None: ...
     def fechar(self, perfil_id: str) -> None: ...
@@ -46,7 +46,7 @@ class Dependencias:
 class NovoPerfil(BaseModel):
     id: str
     nome: str
-    proxy: str
+    proxy: str = ""  # vazio = sem proxy
     sistema: str = "windows"
     idioma: str = "pt-BR"
     notas: str = ""
@@ -71,11 +71,23 @@ class ChecagemProxy(BaseModel):
 def _saida(perfil: Perfil, registro: Registro) -> dict:
     sessao = registro.status(perfil.id)
     return {"id": perfil.id, "nome": perfil.nome, "sistema": perfil.sistema,
-            "proxy": descrever(perfil.proxy), "idioma": perfil.idioma, "notas": perfil.notas,
+            "proxy": descrever(perfil.proxy) if perfil.proxy else None, "idioma": perfil.idioma, "notas": perfil.notas,
             "status": sessao.status, "favorito": perfil.favorito, "criado_em": perfil.criado_em,
             "editado_em": perfil.editado_em, "ultimo_inicio": perfil.ultimo_inicio,
             "pais": perfil.pais, "ip_saida": perfil.ip_saida,
             "cdp": sessao.ws if sessao.status is Status.ABERTO else None, "erro": sessao.erro}
+
+
+def _ler_proxy(texto: str) -> Proxy | None:
+    """Campo vazio é "sem proxy" — o perfil sai pelo IP real da máquina."""
+    return parse_proxy(texto) if texto.strip() else None
+
+
+def _proxy_da_edicao(texto: str, atual: Proxy | None) -> Proxy | None:
+    """A tela nunca recebe a senha: o proxy mascarado de volta significa "manter"."""
+    if atual is not None and texto == descrever(atual):
+        return atual
+    return _ler_proxy(texto)
 
 
 def _exigir_fechado(deps: Dependencias, perfil_id: str) -> None:
@@ -132,7 +144,7 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
 
     @app.post("/perfis", status_code=201)
     def criar(novo: NovoPerfil) -> dict:
-        perfil = Perfil(validar_id(novo.id), novo.nome, novo.sistema, parse_proxy(novo.proxy),
+        perfil = Perfil(validar_id(novo.id), novo.nome, novo.sistema, _ler_proxy(novo.proxy),
                         deps.nova_seed(), novo.idioma, novo.notas)
         try:
             deps.repo.criar(perfil)
@@ -144,7 +156,7 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
     def editar(perfil_id: str, edicao: EdicaoPerfil) -> dict:
         _exigir_fechado(deps, perfil_id)
         atual = deps.repo.obter(perfil_id)
-        proxy = atual.proxy if edicao.proxy == descrever(atual.proxy) else parse_proxy(edicao.proxy)
+        proxy = _proxy_da_edicao(edicao.proxy, atual.proxy)
         deps.repo.atualizar(perfil_id, nome=edicao.nome, proxy=proxy,
                             idioma=edicao.idioma, notas=edicao.notas)
         return _saida(deps.repo.obter(perfil_id), deps.registro)
@@ -173,23 +185,36 @@ def _rotas_cadastro(app: FastAPI, deps: Dependencias) -> None:
     def checar_proxy(corpo: ChecagemProxy) -> dict:
         """Testa sem salvar (botão do formulário). A tela nunca tem a senha: se o campo
         ainda mostra o proxy mascarado do perfil, testa o proxy salvo dele."""
-        proxy = None
-        if corpo.perfil_id is not None:
-            salvo = deps.repo.obter(corpo.perfil_id).proxy
-            proxy = salvo if corpo.proxy == descrever(salvo) else None
+        salvo = deps.repo.obter(corpo.perfil_id).proxy if corpo.perfil_id is not None else None
+        proxy = _proxy_da_edicao(corpo.proxy, salvo)
+        if proxy is None:
+            raise HTTPException(422, "campo vazio: o perfil vai sair pelo seu IP real, sem proxy")
         try:
-            return vars(deps.testar_proxy(proxy or parse_proxy(corpo.proxy)))
+            return vars(deps.testar_proxy(proxy))
         except ErroProxy as erro:
             raise HTTPException(502, str(erro)) from None
 
     @app.post("/perfis/{perfil_id}/testar-proxy")
     def testar_proxy(perfil_id: str) -> dict:
+        proxy = deps.repo.obter(perfil_id).proxy
+        if proxy is None:
+            raise HTTPException(409, "perfil sem proxy: ele usa o seu IP real")
         try:
-            resultado = deps.testar_proxy(deps.repo.obter(perfil_id).proxy)
+            resultado = deps.testar_proxy(proxy)
         except ErroProxy as erro:
             raise HTTPException(502, str(erro)) from None
         deps.repo.registrar_teste(perfil_id, ip=resultado.ip, pais=resultado.pais)
         return vars(resultado)
+
+
+def _abrir_navegador(deps: Dependencias, perfil: Perfil) -> str:
+    """Com proxy, testa antes (proxy morto não abre) e usa o fuso do IP de saída.
+    Sem proxy, não há o que testar: fuso e IP são os da máquina."""
+    if perfil.proxy is None:
+        return deps.lancador.abrir(perfil, None)
+    resultado = deps.testar_proxy(perfil.proxy)
+    deps.repo.registrar_teste(perfil.id, ip=resultado.ip, pais=resultado.pais)
+    return deps.lancador.abrir(perfil, resultado.fuso)
 
 
 def _rotas_sessao(app: FastAPI, deps: Dependencias) -> None:
@@ -202,9 +227,7 @@ def _rotas_sessao(app: FastAPI, deps: Dependencias) -> None:
         except PerfilJaAberto as erro:
             raise HTTPException(409, {"erro": str(erro), "cdp": erro.ws}) from None
         try:
-            resultado = deps.testar_proxy(perfil.proxy)
-            deps.repo.registrar_teste(perfil_id, ip=resultado.ip, pais=resultado.pais)
-            cdp = deps.lancador.abrir(perfil, resultado.fuso)
+            cdp = _abrir_navegador(deps, perfil)
         except Exception as erro:
             deps.registro.liberar(perfil_id)
             raise HTTPException(502 if isinstance(erro, ErroProxy) else 500, str(erro)) from None

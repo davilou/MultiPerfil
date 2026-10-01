@@ -147,11 +147,11 @@ function itensMenu(perfil) {
   }
   itens.push(
     { rotulo: "Editar", icone: "lapis", acao: () => acoes.editar(perfil) },
-    { rotulo: "Testar proxy", icone: "radar", acao: () => testarVarios([perfil.id]) },
+    perfil.proxy ? { rotulo: "Testar proxy", icone: "radar", acao: () => testarVarios([perfil.id]) } : null,
     "-",
     { rotulo: "Remover", icone: "lixo", perigo: true, acao: () => removerVarios([perfil.id]) },
   );
-  return itens;
+  return itens.filter(Boolean);
 }
 
 const acoes = {

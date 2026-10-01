@@ -116,3 +116,13 @@ def test_migra_banco_antigo_sem_perder_perfil(tmp_path):
 def test_marcadores_em_perfil_inexistente(tmp_path, metodo, args):
     with pytest.raises(PerfilInexistente):
         getattr(Repositorio(tmp_path / "p.db"), metodo)("nada", *args)
+
+
+def test_perfil_sem_proxy(tmp_path):
+    repo = Repositorio(tmp_path / "p.db")
+    repo.criar(Perfil("a", "A", "windows", None, 1, "pt-BR", ""))
+    assert repo.obter("a").proxy is None
+    repo.atualizar("a", nome="A", proxy=Proxy("http", "h", 1), idioma="pt-BR", notas="")
+    assert repo.obter("a").proxy == Proxy("http", "h", 1)
+    repo.atualizar("a", nome="A", proxy=None, idioma="pt-BR", notas="")
+    assert repo.obter("a").proxy is None

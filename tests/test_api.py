@@ -262,3 +262,37 @@ def test_checar_proxy_invalido_422_e_morto_502(montar):
     assert cliente.post("/proxy/testar", json={"proxy": "lixo"}).status_code == 422
     r = cliente.post("/proxy/testar", json={"proxy": "http://u:segredo@h:1"})
     assert r.status_code == 502 and "segredo" not in r.text
+
+
+SEM_PROXY = {"id": "pessoal", "nome": "Pessoal", "proxy": ""}
+
+
+def test_criar_e_abrir_sem_proxy_nao_testa_proxy(montar):
+    testados = []
+    cliente, lancador, _ = montar(testar=lambda p: testados.append(p) or _proxy_ok(p))
+    assert cliente.post("/perfis", json=SEM_PROXY).status_code == 201
+    p = cliente.get("/perfis").json()[0]
+    assert p["proxy"] is None
+    assert cliente.post("/perfis/pessoal/abrir").status_code == 200
+    assert testados == [] and lancador.fusos == [None]
+
+
+def test_editar_tira_e_poe_proxy(montar):
+    cliente, _, deps = montar()
+    cliente.post("/perfis", json=NOVO)
+    base = {"nome": "A", "idioma": "pt-BR", "notas": ""}
+    assert cliente.patch("/perfis/canal-a", json={**base, "proxy": ""}).json()["proxy"] is None
+    assert deps.repo.obter("canal-a").proxy is None
+    r = cliente.patch("/perfis/canal-a", json={**base, "proxy": "http://h:2"})
+    assert r.json()["proxy"] == "http://h:2"
+
+
+def test_testar_proxy_de_perfil_sem_proxy_da_409(montar):
+    cliente, _, _ = montar()
+    cliente.post("/perfis", json=SEM_PROXY)
+    assert cliente.post("/perfis/pessoal/testar-proxy").status_code == 409
+
+
+def test_checar_proxy_vazio_da_422(montar):
+    cliente, _, _ = montar()
+    assert cliente.post("/proxy/testar", json={"proxy": "  "}).status_code == 422

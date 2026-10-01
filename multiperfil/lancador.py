@@ -2,6 +2,7 @@
 
 Pasta de perfil persistente (login e cache ficam entre aberturas), seed fixa por perfil,
 fuso do IP do proxy, e o proxy entra pelo repassador local (Chromium não aceita senha).
+Perfil sem proxy sai pelo IP real, com o fuso do Windows.
 """
 
 from __future__ import annotations
@@ -34,23 +35,28 @@ class RepassadorProto(Protocol):
     def fechar(self, perfil_id: str) -> None: ...
 
 
-def argumentos_chrome(executavel: Path, pasta_perfil: Path, perfil: Perfil, fuso: str,
-                      porta_proxy: int, porta_cdp: int) -> list[str]:
+def argumentos_chrome(executavel: Path, pasta_perfil: Path, perfil: Perfil, fuso: str | None,
+                      porta_proxy: int | None, porta_cdp: int) -> list[str]:
+    """Sem proxy (porta_proxy None) sai pelo IP real; sem fuso, fica o do Windows,
+    que é o coerente com o IP real."""
     base = perfil.idioma.split("-")[0]
     aceitos = f"{perfil.idioma},{base}" if "-" in perfil.idioma else perfil.idioma
-    return [
+    args = [
         str(executavel),
         f"--user-data-dir={pasta_perfil}",
         f"--fingerprint={perfil.seed}",
         f"--fingerprint-platform={perfil.sistema}",
-        f"--timezone={fuso}",
         f"--lang={perfil.idioma}",
         f"--accept-lang={aceitos}",
-        f"--proxy-server=http://127.0.0.1:{porta_proxy}",
         f"--remote-debugging-port={porta_cdp}",
         "--no-first-run",
         "--no-default-browser-check",
     ]
+    if fuso is not None:
+        args.append(f"--timezone={fuso}")
+    if porta_proxy is not None:
+        args.append(f"--proxy-server=http://127.0.0.1:{porta_proxy}")
+    return args
 
 
 def comando_matar_arvore(pid: int, sistema: str) -> list[str] | None:
@@ -88,10 +94,11 @@ class Lancador:
         self._repassador = repassador
         self._abertos: dict[str, tuple[subprocess.Popen, str]] = {}
 
-    def abrir(self, perfil: Perfil, fuso: str) -> str:
+    def abrir(self, perfil: Perfil, fuso: str | None) -> str:
         if not self._executavel.exists():
             raise ErroLancamento(f"navegador não encontrado em {self._executavel}")
-        porta_proxy = self._repassador.abrir(perfil.id, perfil.proxy)
+        porta_proxy = (self._repassador.abrir(perfil.id, perfil.proxy)
+                       if perfil.proxy is not None else None)
         porta_cdp = porta_livre()
         args = argumentos_chrome(self._executavel, self._pasta_perfis / perfil.id, perfil,
                                  fuso, porta_proxy, porta_cdp)

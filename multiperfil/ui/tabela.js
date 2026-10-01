@@ -28,6 +28,10 @@ function botaoEstado(perfil, acoes) {
 }
 
 function celulaProxy(perfil) {
+  if (!perfil.proxy) {
+    const selo = el("span", { class: "pais sem", texto: "Sem proxy", title: "Sai pelo seu IP real" });
+    return el("td", {}, [el("div", { class: "proxy-topo" }, [selo, el("span", { class: "ip", texto: "IP real" })])]);
+  }
   const sigla = perfil.pais
     ? el("span", { class: "pais", texto: perfil.pais.toUpperCase() })
     : el("span", { class: "pais sem", texto: "??", title: "Proxy ainda não testado" });

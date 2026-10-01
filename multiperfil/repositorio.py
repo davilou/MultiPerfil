@@ -51,7 +51,7 @@ class Perfil:
     id: str
     nome: str
     sistema: str
-    proxy: Proxy
+    proxy: Proxy | None  # None = sem proxy: sai pelo IP real da máquina
     seed: int
     idioma: str
     notas: str
@@ -83,12 +83,17 @@ def validar_idioma(idioma: str) -> str:
     return idioma
 
 
+def _coluna_proxy(proxy: Proxy | None) -> str:
+    """A coluna é NOT NULL desde o início; vazio guarda "sem proxy" sem migração."""
+    return url_completa(proxy) if proxy is not None else ""
+
+
 def _de_linha(linha: sqlite3.Row) -> Perfil:
     return Perfil(
         id=linha["id"],
         nome=linha["nome"],
         sistema=linha["sistema"],
-        proxy=parse_proxy(linha["proxy"]),
+        proxy=parse_proxy(linha["proxy"]) if linha["proxy"] else None,
         seed=linha["seed"],
         idioma=linha["idioma"],
         notas=linha["notas"],
@@ -129,7 +134,7 @@ class Repositorio:
             raise ValueError(f"sistema deve ser um de {SISTEMAS}")
         validar_idioma(perfil.idioma)
         agora = agora_iso()
-        linha = (perfil.id, perfil.nome, perfil.sistema, url_completa(perfil.proxy), perfil.seed,
+        linha = (perfil.id, perfil.nome, perfil.sistema, _coluna_proxy(perfil.proxy), perfil.seed,
                  perfil.idioma, perfil.notas, agora, agora)
         try:
             with closing(self._conectar()) as con, con:
@@ -159,12 +164,13 @@ class Repositorio:
         if cursor.rowcount == 0:
             raise PerfilInexistente(perfil_id)
 
-    def atualizar(self, perfil_id: str, *, nome: str, proxy: Proxy, idioma: str, notas: str) -> None:
+    def atualizar(self, perfil_id: str, *, nome: str, proxy: Proxy | None, idioma: str,
+                  notas: str) -> None:
         validar_idioma(idioma)
         self._alterar(
             perfil_id,
             "UPDATE perfis SET nome = ?, proxy = ?, idioma = ?, notas = ?, editado_em = ? WHERE id = ?",
-            (nome, url_completa(proxy), idioma, notas, agora_iso()),
+            (nome, _coluna_proxy(proxy), idioma, notas, agora_iso()),
         )
 
     def remover(self, perfil_id: str) -> None:
