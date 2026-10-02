@@ -62,3 +62,34 @@ def test_lancador_sem_proxy_nao_sobe_repassador(tmp_path):
     import pytest
     with pytest.raises(OSError):  # AssertionError aqui = repassador foi chamado
         lancador.abrir(perfil, None)
+
+
+def test_restaura_a_sessao_anterior():
+    assert "--restore-last-session" in argumentos_chrome(Path("c.exe"), Path("p"), _perfil(), None, None, 1)
+
+
+def test_nome_do_perfil_no_chrome_preserva_o_resto(tmp_path):
+    import json
+    from multiperfil.lancador import gravar_nome_no_chrome
+
+    (tmp_path / "Default").mkdir()
+    (tmp_path / "Local State").write_text(json.dumps(
+        {"browser": {"x": 1}, "profile": {"info_cache": {"Default": {"name": "Pessoa 1", "avatar": 3}}}}))
+    (tmp_path / "Default" / "Preferences").write_text(json.dumps({"session": {"y": 2}}))
+    gravar_nome_no_chrome(tmp_path, "Conta Eslováquia")
+    estado = json.loads((tmp_path / "Local State").read_text(encoding="utf-8"))
+    cache = estado["profile"]["info_cache"]["Default"]
+    assert (cache["name"], cache["is_using_default_name"], cache["avatar"]) == ("Conta Eslováquia", False, 3)
+    assert estado["browser"] == {"x": 1}
+    prefs = json.loads((tmp_path / "Default" / "Preferences").read_text(encoding="utf-8"))
+    assert prefs["profile"]["name"] == "Conta Eslováquia" and prefs["session"] == {"y": 2}
+
+
+def test_nome_do_perfil_em_pasta_nova(tmp_path):
+    import json
+    from multiperfil.lancador import gravar_nome_no_chrome
+
+    pasta = tmp_path / "novo"
+    gravar_nome_no_chrome(pasta, "Mega Alemã")
+    estado = json.loads((pasta / "Local State").read_text(encoding="utf-8"))
+    assert estado["profile"]["info_cache"]["Default"]["name"] == "Mega Alemã"

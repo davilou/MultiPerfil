@@ -11,7 +11,7 @@ from multiperfil.cliente import abrir_perfil
 async def main(perfil_id: str) -> None:
     async with async_playwright() as pw:
         async with abrir_perfil(perfil_id, pw) as ctx:
-            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            page = await ctx.new_page()
             await page.goto("https://ipinfo.io/json")
             print(await page.inner_text("body"))
 

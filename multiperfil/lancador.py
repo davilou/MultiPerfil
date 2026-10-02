@@ -7,6 +7,7 @@ Perfil sem proxy sai pelo IP real, com o fuso do Windows.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import subprocess
@@ -51,12 +52,36 @@ def argumentos_chrome(executavel: Path, pasta_perfil: Path, perfil: Perfil, fuso
         f"--remote-debugging-port={porta_cdp}",
         "--no-first-run",
         "--no-default-browser-check",
+        "--restore-last-session",  # reabre as abas de quando o perfil foi fechado
     ]
     if fuso is not None:
         args.append(f"--timezone={fuso}")
     if porta_proxy is not None:
         args.append(f"--proxy-server=http://127.0.0.1:{porta_proxy}")
     return args
+
+
+def _atualizar_json(arquivo: Path, mudar) -> None:
+    dados = json.loads(arquivo.read_text(encoding="utf-8")) if arquivo.exists() else {}
+    mudar(dados)
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    arquivo.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
+
+
+def gravar_nome_no_chrome(pasta_perfil: Path, nome: str) -> None:
+    """O nome do MultiPerfil vira o nome do perfil do Chrome (botão e menu de perfil).
+
+    Só com o navegador fechado — o Chrome reescreve esses arquivos enquanto roda.
+    O título da janela não muda: o Chrome só põe o nome do perfil nele quando a mesma
+    pasta tem vários perfis (medido em 2026-10-02; `--window-name` também não muda).
+    """
+    def no_estado(dados: dict) -> None:
+        cache = dados.setdefault("profile", {}).setdefault("info_cache", {}).setdefault("Default", {})
+        cache.update(name=nome, is_using_default_name=False)
+
+    _atualizar_json(pasta_perfil / "Local State", no_estado)
+    _atualizar_json(pasta_perfil / "Default" / "Preferences",
+                    lambda dados: dados.setdefault("profile", {}).update(name=nome))
 
 
 def comando_matar_arvore(pid: int, sistema: str) -> list[str] | None:
@@ -97,6 +122,7 @@ class Lancador:
     def abrir(self, perfil: Perfil, fuso: str | None) -> str:
         if not self._executavel.exists():
             raise ErroLancamento(f"navegador não encontrado em {self._executavel}")
+        gravar_nome_no_chrome(self._pasta_perfis / perfil.id, perfil.nome)  # antes do repassador
         porta_proxy = (self._repassador.abrir(perfil.id, perfil.proxy)
                        if perfil.proxy is not None else None)
         porta_cdp = porta_livre()

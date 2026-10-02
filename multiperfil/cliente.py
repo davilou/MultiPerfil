@@ -2,7 +2,7 @@
 
     async with async_playwright() as pw:
         async with abrir_perfil("canal-a", pw) as ctx:
-            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            page = await ctx.new_page()  # aba nova: as restauradas são do usuário
             ...
 
 O login e o cache ficam na pasta do perfil; ao sair do bloco o perfil é fechado pela
