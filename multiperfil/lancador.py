@@ -17,6 +17,7 @@ from typing import Protocol
 from playwright.sync_api import Error as ErroPlaywright
 from playwright.sync_api import sync_playwright
 
+from multiperfil.favorito import aplicar_favorito_nome
 from multiperfil.proxy import Proxy
 from multiperfil.rede import ErroRede, esperar_porta, esperar_porta_fechar, porta_aberta, porta_livre
 from multiperfil.repositorio import Perfil
@@ -84,8 +85,14 @@ def gravar_nome_no_chrome(pasta_perfil: Path, nome: str) -> None:
         cache.update(name=nome, is_using_default_name=False)
 
     _atualizar_json(pasta_perfil / "Local State", no_estado)
-    _atualizar_json(pasta_perfil / "Default" / "Preferences",
-                    lambda dados: dados.setdefault("profile", {}).update(name=nome))
+    def nas_preferencias(dados: dict) -> None:
+        dados.setdefault("profile", {}).update(name=nome)
+        # a barra de favoritos é onde o nome aparece (ver favorito.py)
+        dados.setdefault("bookmark_bar", {}).update(show_on_all_tabs=True)
+
+    _atualizar_json(pasta_perfil / "Default" / "Preferences", nas_preferencias)
+    _atualizar_json(pasta_perfil / "Default" / "Bookmarks",
+                    lambda dados: aplicar_favorito_nome(dados, nome))
 
 
 def fechar_orfao(pasta_perfil: Path) -> None:
