@@ -77,15 +77,18 @@ def test_para_requests_resolve_dns_no_proxy_socks():
 
 
 def test_testar_devolve_ip_pais_fuso():
-    class Geo:
-        timezone = "America/Sao_Paulo"
-
-        class locale:
-            region = "BR"
-
-    r = verificar_proxy(Proxy("http", "h", 1), buscar_ip=lambda url: "5.6.7.8", geolocalizar=lambda ip: Geo)
+    r = verificar_proxy(Proxy("http", "h", 1), buscar_ip=lambda url: "5.6.7.8",
+                        geolocalizar=lambda ip: ("BR", "America/Sao_Paulo"))
     assert (r.ip, r.pais, r.fuso) == ("5.6.7.8", "BR", "America/Sao_Paulo")
     assert r.latencia_ms >= 0
+
+
+def test_falha_de_geolocalizacao_vira_erro_de_proxy_claro():
+    def quebra(ip):
+        raise RuntimeError("404 Client Error")
+
+    with pytest.raises(ErroProxy, match="localizar o IP 5.6.7.8"):
+        verificar_proxy(Proxy("http", "h", 1), buscar_ip=lambda url: "5.6.7.8", geolocalizar=quebra)
 
 
 def test_testar_falha_sem_vazar_senha():
@@ -93,7 +96,7 @@ def test_testar_falha_sem_vazar_senha():
         raise RuntimeError(f"falhou em {url}")
 
     with pytest.raises(ErroProxy) as erro:
-        verificar_proxy(Proxy("http", "h", 1, "u", "segredo"), buscar_ip=quebra, geolocalizar=None)
+        verificar_proxy(Proxy("http", "h", 1, "u", "segredo"), buscar_ip=quebra, geolocalizar=lambda ip: (None, 'UTC'))
     assert "segredo" not in str(erro.value)
     assert "http://u:***@h:1" in str(erro.value)
 
@@ -103,5 +106,5 @@ def test_testar_falha_sem_vazar_senha_crua_na_mensagem():
         raise RuntimeError("auth falhou, pass segredo")
 
     with pytest.raises(ErroProxy) as erro:
-        verificar_proxy(Proxy("http", "h", 1, "u", "segredo"), buscar_ip=quebra, geolocalizar=None)
+        verificar_proxy(Proxy("http", "h", 1, "u", "segredo"), buscar_ip=quebra, geolocalizar=lambda ip: (None, 'UTC'))
     assert "segredo" not in str(erro.value)

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Callable
 from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 ESQUEMAS: tuple[str, ...] = ("http", "https", "socks5")
@@ -115,7 +115,7 @@ def para_playwright(p: Proxy) -> dict[str, str]:
 def testar(
     p: Proxy,
     buscar_ip: Callable[[str], str],
-    geolocalizar: Callable[[str], Any] | None,
+    geolocalizar: Callable[[str], tuple[str | None, str]],
 ) -> ResultadoProxy:
     inicio = time.perf_counter()
     try:
@@ -126,7 +126,8 @@ def testar(
             texto = texto.replace(quote(p.senha, safe=""), "***").replace(p.senha, "***")
         raise ErroProxy(f"proxy {descrever(p)} não respondeu: {texto}") from None
     latencia = int((time.perf_counter() - inicio) * 1000)
-    if geolocalizar is None:
-        raise ErroProxy("geolocalizar é obrigatório quando o IP foi obtido")
-    geo = geolocalizar(ip)
-    return ResultadoProxy(ip=ip, pais=geo.locale.region, fuso=geo.timezone, latencia_ms=latencia)
+    try:
+        pais, fuso = geolocalizar(ip)
+    except Exception as erro:  # o texto vem do banco de geolocalização, não tem a senha
+        raise ErroProxy(f"o proxy respondeu, mas não consegui localizar o IP {ip}: {erro}") from None
+    return ResultadoProxy(ip=ip, pais=pais, fuso=fuso, latencia_ms=latencia)

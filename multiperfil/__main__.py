@@ -6,11 +6,11 @@ import secrets
 from pathlib import Path
 
 import uvicorn
-from camoufox.geolocation import get_geolocation
 from camoufox.ip import public_ip
 
 from multiperfil.api import Dependencias, criar_app
 from multiperfil.estado import Registro
+from multiperfil.geo import localizar
 from multiperfil.lancador import Lancador
 from multiperfil.proxy import testar
 from multiperfil.repassador import Repassador
@@ -28,7 +28,7 @@ def montar_dependencias(dados: Path, navegador: Path) -> Dependencias:
         registro=Registro(),
         pasta_perfis=pasta_perfis,
         nova_seed=lambda: secrets.randbelow(2**31 - 1) + 1,
-        testar_proxy=lambda proxy: testar(proxy, public_ip, get_geolocation),
+        testar_proxy=lambda proxy: testar(proxy, public_ip, localizar),
     )
 
 

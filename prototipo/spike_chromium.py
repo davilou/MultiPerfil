@@ -18,10 +18,10 @@ import time
 import urllib.request
 from pathlib import Path
 
-from camoufox.geolocation import get_geolocation
 from camoufox.ip import public_ip
 from playwright.async_api import async_playwright
 
+from multiperfil.geo import localizar
 from multiperfil.proxy import Proxy, parse_proxy, testar
 
 PASTA = Path("dados/spike-chromium").resolve()
@@ -113,8 +113,8 @@ async def sessao(porta_cdp: int) -> None:
 def main() -> None:
     PASTA.mkdir(parents=True, exist_ok=True)
     proxy = parse_proxy(Path("dados/proxy.txt").read_text(encoding="utf-8"))
-    resultado = testar(proxy, public_ip, get_geolocation)
-    idioma = get_geolocation(resultado.ip).locale.as_string
+    resultado = testar(proxy, public_ip, localizar)
+    idioma = "pt-BR"
     marca(f"proxy ok: {resultado.pais} {resultado.fuso} {idioma}")
     porta_px, porta_cdp = porta_livre(), porta_livre()
     repassador = subir_repassador(proxy, porta_px)

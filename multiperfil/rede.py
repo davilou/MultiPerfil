@@ -33,3 +33,20 @@ def esperar_porta(porta: int, processo: subprocess.Popen, prazo_s: float) -> Non
         except OSError:
             time.sleep(0.1)
     raise ErroRede(f"porta {porta} não abriu em {prazo_s}s")
+
+
+def porta_aberta(porta: int) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", porta), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+def esperar_porta_fechar(porta: int, prazo_s: float) -> bool:
+    limite = time.monotonic() + prazo_s
+    while time.monotonic() < limite:
+        if not porta_aberta(porta):
+            return True
+        time.sleep(0.2)
+    return False

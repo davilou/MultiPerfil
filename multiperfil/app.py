@@ -72,12 +72,21 @@ def main() -> None:
     webview.start()
 
 
+def encerrar_perfis(repo, lancador, registro) -> None:
+    """Fecha cada perfil aberto pelo CDP (grava cookies e abas). Um que falhe não pode
+    impedir os outros: o que sobrar vivo vira órfão segurando a pasta do perfil."""
+    for perfil in repo.listar():
+        if not registro.ocupado(perfil.id):
+            continue
+        try:
+            lancador.fechar(perfil.id)
+        except Exception:
+            log.exception("[%s] não fechou ao sair; segue para os outros", perfil.id)
+        registro.liberar(perfil.id)
+
+
 def _encerrar(deps: Dependencias, servidor: uvicorn.Server) -> None:
-    """Fecha os perfis abertos pelo CDP (grava cookies) e para a API."""
-    for perfil in deps.repo.listar():
-        if deps.registro.ocupado(perfil.id):
-            deps.lancador.fechar(perfil.id)
-            deps.registro.liberar(perfil.id)
+    encerrar_perfis(deps.repo, deps.lancador, deps.registro)
     servidor.should_exit = True
 
 

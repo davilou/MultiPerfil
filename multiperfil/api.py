@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,7 @@ from multiperfil.repositorio import (
 )
 
 PASTA_UI = Path(__file__).parent / "ui"
+log = logging.getLogger("multiperfil.api")
 
 
 class LancadorProto(Protocol):
@@ -230,6 +232,7 @@ def _rotas_sessao(app: FastAPI, deps: Dependencias) -> None:
             cdp = _abrir_navegador(deps, perfil)
         except Exception as erro:
             deps.registro.liberar(perfil_id)
+            log.exception("[%s] falhou ao abrir", perfil_id)  # a tela só mostra a mensagem
             raise HTTPException(502 if isinstance(erro, ErroProxy) else 500, str(erro)) from None
         deps.registro.marcar_aberto(perfil_id, cdp)
         deps.repo.registrar_inicio(perfil_id, agora_iso())

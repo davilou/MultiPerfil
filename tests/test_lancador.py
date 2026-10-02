@@ -93,3 +93,31 @@ def test_nome_do_perfil_em_pasta_nova(tmp_path):
     gravar_nome_no_chrome(pasta, "Mega Alemã")
     estado = json.loads((pasta / "Local State").read_text(encoding="utf-8"))
     assert estado["profile"]["info_cache"]["Default"]["name"] == "Mega Alemã"
+
+
+class _RepassadorNulo:
+    def abrir(self, perfil_id, proxy):
+        raise AssertionError("teste usa perfil sem proxy")
+
+    def fechar(self, perfil_id):
+        pass
+
+
+def test_marca_cdp_velha_e_apagada_sem_erro(tmp_path):
+    from multiperfil.lancador import ARQUIVO_CDP, fechar_orfao
+    from multiperfil.rede import porta_livre
+
+    (tmp_path / ARQUIVO_CDP).write_text(f"http://127.0.0.1:{porta_livre()}")  # ninguém escuta
+    fechar_orfao(tmp_path)
+    assert not (tmp_path / ARQUIVO_CDP).exists()
+
+
+def test_chrome_que_sai_com_codigo_0_explica_o_motivo(tmp_path):
+    import pytest
+    from multiperfil.lancador import ErroLancamento, Lancador
+
+    falso = tmp_path / "chrome.bat"
+    falso.write_text("@exit /b 0\n")  # como um 2º Chrome que entrega o pedido a outra janela
+    lancador = Lancador(falso, tmp_path / "perfis", _RepassadorNulo())
+    with pytest.raises(ErroLancamento, match="já está aberta"):
+        lancador.abrir(Perfil("a", "A", "windows", None, 7, "pt-BR", ""), None)
