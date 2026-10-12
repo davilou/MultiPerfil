@@ -24,9 +24,15 @@ class ErroGeo(Exception):
 def localizar(ip: str) -> tuple[str | None, str]:
     """(país ISO-2 ou None, fuso IANA) do IP."""
     banco = camoufox_geo.get_mmdb_path("ipv6" if ":" in ip else "ipv4")
-    if not banco.exists():
+    # Nada de `exists()`: no Windows ele devolve False em QUALQUER erro (acesso negado,
+    # arquivo travado) e o arquivo presente virava "ausente" → download → 404.
+    try:
+        banco.stat()
+    except FileNotFoundError:
         log.warning("banco de geolocalização ausente em %s; baixando", banco)
         camoufox_geo.download_mmdb()
+    except OSError as erro:
+        raise ErroGeo(f"não consegui ler o banco de geolocalização {banco}: {erro}") from erro
     with maxminddb.open_database(str(banco)) as leitor:
         registro = leitor.get(ip)
     if not registro or not registro.get("timezone"):

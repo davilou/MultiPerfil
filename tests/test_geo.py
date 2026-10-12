@@ -38,6 +38,18 @@ def test_ip_fora_do_banco_falha_claro(banco):
         geo.localizar("1.2.3.4")
 
 
+def test_banco_ilegivel_falha_claro_sem_baixar(tmp_path, monkeypatch):
+    class _Travado(type(tmp_path)):
+        def stat(self, **kwargs):
+            raise PermissionError(13, "Acesso negado")
+
+    monkeypatch.setattr(geo.camoufox_geo, "get_mmdb_path", lambda versao: _Travado(tmp_path / "b.mmdb"))
+    monkeypatch.setattr(geo.camoufox_geo, "download_mmdb",
+                        lambda: pytest.fail("arquivo ilegível não é arquivo ausente"))
+    with pytest.raises(geo.ErroGeo, match="Acesso negado"):
+        geo.localizar("196.44.125.10")
+
+
 def test_sem_banco_pede_download(tmp_path, monkeypatch):
     baixou = []
     arquivo = tmp_path / "nao-existe.mmdb"
